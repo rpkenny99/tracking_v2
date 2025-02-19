@@ -1,0 +1,603 @@
+import csv
+from asyncio import sleep
+import cv2 as cv2
+import numpy as np
+from cv2 import aruco
+import os
+import matplotlib.pyplot as plt
+import math
+from scipy.spatial.transform import Rotation as R
+from queue import Queue
+
+markerDict = aruco.getPredefinedDictionary(aruco.DICT_6X6_100)
+paramMarkers = aruco.DetectorParameters()
+calib_data_path = "Capstone/Tracking/calib_data/MultiMatrix.npz"
+calib_data = np.load(calib_data_path)
+
+cam_mat = calib_data["camMatrix"]
+dist_coef = calib_data["distCoef"]
+r_vectors = calib_data["rVector"]
+t_vectors = calib_data["tVector"]
+
+consequtive_failures = 0
+
+dodecahedron_edge_length_mm = 12.71
+inradius_mm = math.sqrt((25 + 11*math.sqrt(5))/40) * dodecahedron_edge_length_mm
+
+MARKER_SIZE = 11.77
+REFERENCE_RVEC = np.array([1.2639763 ,  1.45933559, -1.29766979])
+REFERENCE_TVEC = np.array([95.22124999,  73.81633065, 304.82649138])
+FPS = 30
+TIME_PER_FRAME = 1/FPS
+
+z_average = []
+
+x_data = []
+y_data = []
+z_data = []
+
+pitch_data = []
+
+def init_realtime_plot():
+    global fig, ax, scatter_handle
+    global x_data, y_data, z_data
+        
+    fig = plt.figure(figsize=(8, 6))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+    ax.set_title("Real-time Pose (x, y, z)")
+
+    # Initialize an empty scatter plot
+    scatter_handle = ax.scatter([], [], [], c='r', marker='o')
+
+    plt.show(block=False)
+
+def update_realtime_plot(x, y, z):
+    """
+    Append the new (x, y, z) to our data arrays 
+    and update the existing scatter in real time.
+    """
+    global x_data, y_data, z_data
+    global fig, ax, scatter_handle
+
+    # Add new pose to the data lists
+    x_data.append(x)
+    y_data.append(y)
+    z_data.append(z)
+
+    # Update the scatter plot data
+    # We can do this by directly updating the offsets3d property:
+    scatter_handle._offsets3d = (x_data, y_data, z_data)
+
+    # Force the axis to re-calculate its limits 
+    ax.set_xlim3d(min(x_data), max(x_data))
+    ax.set_ylim3d(min(y_data), max(y_data))
+    ax.set_zlim3d(min(z_data), max(z_data))
+
+    # ax.set_xlim(-400, 400)
+    # ax.set_ylim(-100, 100)
+    # ax.set_zlim(-400, 400)
+
+    # Redraw
+    plt.draw()
+    plt.pause(0.1)  # A small pause so that the figure gets updated
+
+def DisplayFrame(frame):
+    cv2.imshow("preview", frame)
+
+def transform_corners_to_world(local_corners, rVec_world, tVec_world):
+    """
+    Transforms the marker corners from the marker's local coordinate system to the world coordinate system.
+
+    :param local_corners: 3D coordinates of the marker corners in the marker's local coordinate system (4x3 array).
+    :param rVec_world: Rotation vector representing the orientation of the marker in the world coordinate system (3x1).
+    :param tVec_world: Translation vector representing the position of the marker in the world coordinate system (3x1).
+    :return: Array of 3D world coordinates for each corner.
+    """
+    # Convert the rotation vector to a rotation matrix
+    R_world, _ = cv2.Rodrigues(rVec_world)
+
+    # Transform each local corner to the world coordinate system
+    world_corners = []
+    for corner in local_corners:
+        # Apply rotation and translation to get world coordinates
+        world_point = R_world @ corner.reshape(3, 1) + tVec_world.reshape(3, 1)
+        world_corners.append(world_point.flatten())
+
+    return np.array(world_corners)
+
+
+def transform_to_world(rVec, tVec, rVec_origin, tVec_origin):
+    """
+    Transforms the pose of a marker from camera coordinates to world coordinates.
+    The world coordinate system is defined by the reference marker (rVec_origin, tVec_origin).
+
+    :param rVec: Rotation vector of the marker (3x1).
+    :param tVec: Translation vector of the marker (3x1).
+    :param rVec_origin: Rotation vector of the reference marker (3x1).
+    :param tVec_origin: Translation vector of the reference marker (3x1).
+    :return: Transformed rotation vector and translation vector in world coordinates.
+    """
+    # Convert the reference marker's rotation vector to a rotation matrix
+    R_origin, _ = cv2.Rodrigues(rVec_origin)
+    t_origin = tVec_origin.reshape(3, 1)
+
+    # Invert the reference marker's transformation to get camera-to-world transformation
+    R_origin_inv = R_origin.T
+    t_origin_inv = -R_origin_inv @ t_origin
+
+    # Convert the marker's rotation vector to a rotation matrix
+    R_marker, _ = cv2.Rodrigues(rVec)
+    t_marker = tVec.reshape(3, 1)
+
+    # Transform the marker's pose from camera coordinates to world coordinates
+    # R_world = R_origin_inv * R_marker
+    # t_world = R_origin_inv * t_marker + t_origin_inv
+    R_world = R_origin_inv @ R_marker
+    t_world = R_origin_inv @ t_marker + t_origin_inv
+
+    # Convert the world rotation matrix back to a rotation vector
+    rVec_world, _ = cv2.Rodrigues(R_world)
+
+    return rVec_world, t_world
+
+def plot_marker_corners(corners):
+    """
+    Plots the 3D coordinates of marker corners. Each time this function is called,
+    the plot is updated with the new data.
+
+    :param corners: A list of sets of corners, where each set contains the 3D coordinates of the corners.
+                    The input should be in the form [[(x1, y1, z1), (x2, y2, z2), ...], ...] for multiple markers.
+    """
+    # Clear the current plot
+    ax.cla()
+
+    # Loop through each marker's set of corners
+    for set_of_corners in corners:
+        # Extract x, y, z coordinates for the current set of corners
+        x = [corner[0] for corner in set_of_corners]
+        y = [corner[1] for corner in set_of_corners]
+        z = [corner[2] for corner in set_of_corners]
+
+        # Plot the corners for this marker
+        ax.scatter(x, y, z, marker='o', s=50, label='Marker Corners')
+
+        # Optionally, you can connect the corners to form the marker's shape
+        # Closing the loop to form a quadrilateral
+        ax.plot(x + [x[0]], y + [y[0]], z + [z[0]], 'b-')
+
+    # Set axis labels
+    ax.set_xlabel('X (meters)')
+    ax.set_ylabel('Y (meters)')
+    ax.set_zlabel('Z (meters)')
+    ax.set_title('3D Plot of Marker Corners')
+
+    # Display legend
+    ax.legend()
+
+    # Draw the updated plot and flush events
+    plt.draw()
+    fig.canvas.flush_events()
+
+def plot_marker_rotation(avg_pose, rotated_poses):
+    global ax2
+    ax2.cla()  # Clear the current plot to reuse the same figure and axis
+
+    scale_factor = 0.05
+
+    if rotated_poses is not None:
+        for rotMat in rotated_poses:
+            # Define the origin and scaled axes as column vectors
+            origin = np.array([0, 0, 0])
+            x_axis = scale_factor * np.array([1, 0, 0]).reshape(3, 1)
+            y_axis = scale_factor * np.array([0, 1, 0]).reshape(3, 1)
+            z_axis = scale_factor * np.array([0, 0, 1]).reshape(3, 1)
+
+            # Apply the rotation to each scaled axis and flatten the result to get 1D arrays
+            x_rotated = (rotMat @ x_axis).flatten()
+            y_rotated = (rotMat @ y_axis).flatten()
+            z_rotated = (rotMat @ z_axis).flatten()
+
+            # Plot the rotated axes with short lines
+            ax2.quiver(*origin, *x_rotated, color='r', linestyle='dashed', label='Rotated X')
+            ax2.quiver(*origin, *y_rotated, color='g', linestyle='dashed', label='Rotated Y')
+            ax2.quiver(*origin, *z_rotated, color='b', linestyle='dashed', label='Rotated Z')
+
+    # saved_markers = fix_faulty_markers(faulty_markers, faulty_marker_ids)
+    # saved_markers = adjust
+
+    if avg_pose is not None:
+        # Define the origin and scaled axes as column vectors
+        origin = np.array([0, 0, 0])
+        x_axis = scale_factor * np.array([1, 0, 0]).reshape(3, 1)
+        y_axis = scale_factor * np.array([0, 1, 0]).reshape(3, 1)
+        z_axis = scale_factor * np.array([0, 0, 1]).reshape(3, 1)
+
+        # Apply the rotation to each scaled axis and flatten the result to get 1D arrays
+        x_rotated = (avg_pose @ x_axis).flatten()
+        y_rotated = (avg_pose @ y_axis).flatten()
+        z_rotated = (avg_pose @ z_axis).flatten()
+
+        # Plot the rotated axes with short lines
+        ax2.quiver(*origin, *x_rotated, color='r', linestyle='solid', label='Rotated X')
+        ax2.quiver(*origin, *y_rotated, color='g', linestyle='solid', label='Rotated Y')
+        ax2.quiver(*origin, *z_rotated, color='b', linestyle='solid', label='Rotated Z')
+
+    # Only add the legend once
+    ax2.legend()
+    plt.draw()
+    fig2.canvas.flush_events()
+
+def plot_singular_points(points):
+    """
+    Plots singular 3D points. Each time this function is called,
+    the plot is updated with the new data.
+
+    :param points: A list of 3D points in the form [(x1, y1, z1), (x2, y2, z2), ...]
+    """
+    # Clear the current plot
+    global ax
+
+    ax.cla()
+
+    # Extract x, y, z coordinates from the list of points
+    x = [point[0] for point in points]
+    y = [point[1] for point in points]
+    z = [point[2] for point in points]
+
+    # Plot the singular points
+    ax.scatter(x, y, z, marker='o', s=50, c='r', label='Singular Points')
+
+    # Draw the updated plot and flush events
+    plt.draw()
+    fig.canvas.flush_events()
+
+def compute_velocity(rvec_prev, tvec_prev, rvec_curr, tvec_curr, delta_t):
+    # Compute translational velocity
+    v_x = (tvec_curr[0] - tvec_prev[0]) / delta_t
+    v_y = (tvec_curr[1] - tvec_prev[1]) / delta_t
+    v_z = (tvec_curr[2] - tvec_prev[2]) / delta_t
+
+    # Convert rvec to rotation matrices
+    R_curr, _ = cv2.Rodrigues(rvec_curr)
+    R_prev, _ = cv2.Rodrigues(rvec_prev)
+
+    # Compute relative rotation matrix
+    R_relative = np.dot(R_curr, R_prev.T)
+
+    # Convert relative rotation matrix back to rotation vector
+    rvec_relative, _ = cv2.Rodrigues(R_relative)
+
+    # Compute angular velocity
+    omega_x = rvec_relative[0][0] / delta_t
+    omega_y = rvec_relative[1][0] / delta_t
+    omega_z = rvec_relative[2][0] / delta_t
+
+    return (v_x, v_y, v_z), (omega_x, omega_y, omega_z)
+
+def ensure_marker_faces_camera(rotation):
+    """
+    rotation: a 3x1 Rodrigues vector as typically returned by cv2.solvePnP().
+              e.g. rotation[0][0], rotation[1][0], rotation[2][0].
+    Modifies 'rotation' in-place if the marker is flipped.
+    """
+    # Convert rotation vector -> 3D numpy array
+    z_axis = np.array([0, 1, 0], dtype=float)
+    rvec_array = np.array([rotation[0][0], rotation[1][0], rotation[2][0]], dtype=float)
+
+    dot_val = np.dot(rvec_array, z_axis)
+    norm_rvec = np.linalg.norm(rvec_array)
+    cos_theta = dot_val / (norm_rvec * 1.0)  # (||z_axis|| is 1)
+    # Clamp to avoid numerical domain errors
+    cos_theta = max(min(cos_theta, 1.0), -1.0)
+    theta = math.acos(cos_theta)
+    
+    # 3) Camera’s +Z is [0, 0, 1].  Check the dot product:
+    #    If z_marker_cam is facing *away* from camera (dot < 0), flip 180° around local Y.
+    if abs(theta) > math.radians(90):
+        rotation[0][0] *= -1
+        rotation[1][0] *= -1
+        rotation[2][0] *= -1
+
+    # If dot >= 0, we do nothing: it is already facing the camera.
+    return rotation
+
+def ProcessFrame_2(frame, file):
+    global board
+    global consequtive_failures
+    global z_data
+    grayFrame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    markerCorners, markerIds, rejects = aruco.detectMarkers(
+        grayFrame, markerDict, parameters=paramMarkers
+    )
+
+    x_val, y_val, z_val, pitch_val, roll_val, yaw_val = None, None, None, None, None, None
+
+    if markerIds is not None:
+
+        rVec, tVec, _ = aruco.estimatePoseSingleMarkers(
+                markerCorners, MARKER_SIZE, cam_mat, dist_coef
+            )
+        success, rotation, translation = aruco.estimatePoseBoard(markerCorners, markerIds, board, cam_mat, dist_coef, r_vectors, t_vectors)
+        if success:
+            frame = aruco.drawDetectedMarkers(frame, markerCorners, markerIds)
+            for i, _ in enumerate(markerIds):
+                cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 4, 4)
+            cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rotation, translation, 4, 4)
+            
+            # Extract translation and rotation
+            x_val = translation[0][0]
+            y_val = translation[1][0]
+            z_val = translation[2][0]
+
+            rotation = ensure_marker_faces_camera(rotation)
+
+            pitch_val = rotation[0][0]
+            roll_val  = rotation[1][0]
+            yaw_val   = rotation[2][0]
+
+            if z_val < 0:
+                x_val *= -1
+                y_val *= -1
+                z_val *= -1
+
+            if len(z_data) != 0:
+                if z_val < z_data[-1] - inradius_mm/2:
+                    consequtive_failures += 1
+                    if consequtive_failures == 3:
+                        consequtive_failures = 0
+                    else:
+                        z_val = z_data[-1]
+
+            # Write to text file
+            result_string = f"{x_val} {y_val} {z_val} {pitch_val} {roll_val} {yaw_val}"
+            
+            # Update the real-time plot
+            # update_realtime_plot(pitch_val, roll_val, yaw_val)
+              
+    return frame, [x_val, y_val, z_val, pitch_val, roll_val, yaw_val]
+
+def rotation_around_y(d):
+    r = np.deg2rad(d)
+    return np.matrix([[np.cos(r), 0, -np.sin(r), 0], [0, 1, 0, 0], [np.sin(r), 0, np.cos(r), 0], [0, 0, 0, 1]],
+                     dtype=np.float32)
+
+def rotation_around_x(d):
+    r = np.deg2rad(d)
+    return np.matrix([[1, 0, 0, 0], [0, np.cos(r), -np.sin(r), 0], [0, np.sin(r), np.cos(r), 0], [0, 0, 0, 1]], 
+                     dtype=np.float32)
+
+
+def rotation_around_z(d):
+    r = np.deg2rad(d)
+    return np.matrix([[np.cos(r), np.sin(r), 0, 0], [-np.sin(r), np.cos(r), 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]],
+                     dtype=np.float32)
+
+def translation(tx, ty, tz):
+    return np.matrix([[1, 0, 0, tx], [0, 1, 0, ty], [0, 0, 1, tz], [0, 0, 0, 1]], dtype=np.float32)
+
+def hom2cart(p):
+    return p[:-1] / p[-1]
+
+def dodecahedron_aruco_points():
+    global inradius_mm
+    radius = inradius_mm
+    tc = MARKER_SIZE/2 #mm
+    all_aruco_points = []
+
+    # top-left, top-right, bottom-right, bottom-left
+    origin_points = np.matrix([ [-tc, -tc, 0, 1],[-tc, tc, 0, 1],[tc, tc, 0, 1],[tc, -tc, 0, 1]], dtype=np.float32).T
+
+    #ids = [5, 1, 2, 3, 4]
+    sticker_rotations = [180, 90, -90, -90, 0]
+    pentagon_edge_to_marker = [2.18, 2.04, 2.00, 2.14, 1.62]
+    marker_edge_to_marker_center = MARKER_SIZE/2
+    pentagon_edge_to_pentagon_center = math.tan(math.radians(54)) * dodecahedron_edge_length_mm/2
+
+    adjustment = [0,0,0,0,0]
+    adjustment[0] = translation((pentagon_edge_to_pentagon_center - (marker_edge_to_marker_center + pentagon_edge_to_marker[0])), 0, 0)
+    adjustment[1] = translation(-(pentagon_edge_to_pentagon_center - (marker_edge_to_marker_center + pentagon_edge_to_marker[1])), 0, 0)
+    adjustment[2] = translation(0, -(pentagon_edge_to_pentagon_center - (marker_edge_to_marker_center + pentagon_edge_to_marker[2])), 0)
+    adjustment[3] = translation(0, -(pentagon_edge_to_pentagon_center - (marker_edge_to_marker_center + pentagon_edge_to_marker[3])), 0)
+    adjustment[4] = translation(0, (pentagon_edge_to_pentagon_center - (marker_edge_to_marker_center + pentagon_edge_to_marker[3])), 0)
+
+    for i, rot in enumerate([0, 4, 3, 2, 1]):
+        aruco_corners = rotation_around_z(72 * rot) * rotation_around_y(116.565) *\
+            rotation_around_z(sticker_rotations[rot]) * \
+                translation(0, 0, -radius) * rotation_around_y(180) * adjustment[i] * origin_points
+        all_aruco_points.append(hom2cart(aruco_corners).T)
+    
+
+    pentagon_edge_to_marker = [2.13, 2.14, 2.78, 2.79, 2.45]
+    adjustment[0] = translation((pentagon_edge_to_pentagon_center - (marker_edge_to_marker_center + pentagon_edge_to_marker[0])), 0, 0)
+    adjustment[1] = translation((pentagon_edge_to_pentagon_center - (marker_edge_to_marker_center + pentagon_edge_to_marker[1])), 0, 0)
+    adjustment[2] = translation(-(pentagon_edge_to_pentagon_center - (marker_edge_to_marker_center + pentagon_edge_to_marker[2])), 0, 0)
+    adjustment[3] = translation(0, (pentagon_edge_to_pentagon_center - (marker_edge_to_marker_center + pentagon_edge_to_marker[3])), 0)
+    adjustment[4] = translation(-(pentagon_edge_to_pentagon_center - (marker_edge_to_marker_center + pentagon_edge_to_marker[4])), 0, 0)
+
+    # ids =[6, 14, 9, 8, 7]
+    sticker_rotations = [180, 0, 0, 180, 90]
+    for i, rot in enumerate([2, 1, 0, 4, 3]):
+        aruco_corners = rotation_around_z(72*rot) * rotation_around_y(116.565) * \
+                        rotation_around_z(180) * rotation_around_z(sticker_rotations[rot]) * translation(0, 0, radius) * adjustment[i] * origin_points
+        all_aruco_points.append(hom2cart(aruco_corners).T)
+
+    # # top marker0
+    aruco_corners = rotation_around_z(90) * translation(0, 0, radius) * translation(0, (pentagon_edge_to_pentagon_center - (marker_edge_to_marker_center + 2.27)), 0) * origin_points
+    all_aruco_points.append(hom2cart(aruco_corners).T)
+    # # bottom marker19
+    aruco_corners = rotation_around_z(-90) * translation(0, 0, -radius) * translation(0, (pentagon_edge_to_pentagon_center - (marker_edge_to_marker_center + 2.73)), 0) * rotation_around_y(180) * origin_points
+    all_aruco_points.append(hom2cart(aruco_corners).T)
+  
+    return all_aruco_points
+
+def RunVideoCaptureDetection(queue, vidCapturePath=None):
+    print("Trying to open video capture device")
+    
+    # init_realtime_plot()
+    if vidCapturePath is None:
+        vc = cv2.VideoCapture(0)
+    else:
+        vc = cv2.VideoCapture(vidCapturePath)
+
+    if vc.isOpened(): # try to get the first frame
+        print("Video capture device opened successfully!")
+        print("Initializing video capture device...")
+        print("Initialization completed!")
+        print("Reading first frame...")
+        rval, frame = vc.read()
+        print("First frame read successfully!")
+    else:
+        rval = False
+
+    counter = 0
+
+    with open('data.txt', 'w') as file:
+        while rval:
+            post_process_frame, data = ProcessFrame_2(frame, file)
+            queue.put(data)
+            print(f"Putting: {data} into queue\n")
+
+            rval, frame = vc.read()
+            counter += 1
+
+            key = cv2.waitKey(20)
+            if key == 27: # exit on ESC
+                break
+
+            DisplayFrame(post_process_frame)
+        
+    vc.release()
+
+def RunTestImageDetection():
+    frame = cv2.imread('geometric_rotation_images/Marker19_3.jpg')
+    assert(frame is not None)
+    cv2.namedWindow('preview', cv2.WINDOW_NORMAL)
+
+    rval = True
+    
+    # Define output CSV file
+    output_csv = 'data.csv'
+    fieldnames = [
+        'Center_X', 'Center_Y', 'Center_Z',
+        'Yaw', 'Pitch', 'Roll',
+        'Positional_Velocity_X', 'Positional_Velocity_Y', 'Positional_Velocity_Z',
+        'Rotational_Velocity_X', 'Rotational_Velocity_Y', 'Rotational_Velocity_Z'
+    ]
+
+    with open(output_csv, mode='w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()  # Write the header row
+
+        while rval:
+            # Process the current frame
+            post_process_frame = ProcessFrame_2(frame, writer)
+
+            sleep(1000)  # Artificial delay
+
+            key = cv2.waitKey(20)
+            if key == 27:  # Exit on ESC
+                break
+
+            DisplayFrame(post_process_frame)
+
+def setupArucoBoard():
+    points = dodecahedron_aruco_points()
+    # plot_aruco_board()
+    ids = np.array([[5], [1], [2], [3], [4], [9], [14], [6], [7], [8], [0], [19]])
+    return aruco.Board(points, markerDict, ids)
+
+def plot_aruco_board():
+    ids = np.array([[5], [1], [2], [3], [4], [14], [6], [7], [8], [9], [0], [19]])
+    aruco_points = dodecahedron_aruco_points()
+
+    # Plot in 3D
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    # To store all the points for axis limits
+    all_x, all_y, all_z = [], [], []
+
+    # Assuming the corners are ordered as top-left, top-right, bottom-right, bottom-left for each marker
+    for idx, corners in enumerate(aruco_points):
+        # Ensure corners are converted to NumPy arrays
+        corners = np.array(corners)
+
+        # Extract x, y, z coordinates for the current marker's corners
+        x = corners[:, 0]
+        y = corners[:, 1]
+        z = corners[:, 2]
+
+        print(f"{x=}, {y=}, {z=}\n")
+
+        # Collect all points for axis limits
+        all_x.extend(x)
+        all_y.extend(y)
+        all_z.extend(z)
+
+        # # Plot the corners
+        # ax.scatter(x, y, z, color='black', zorder=1)
+
+        # Connect the corners to form a closed quadrilateral with grey outlines
+        ax.plot(
+            np.concatenate([x, [x[0]]]),
+            np.concatenate([y, [y[0]]]),
+            np.concatenate([z, [z[0]]]),
+            '-o', color='grey', zorder=1
+        )
+
+        # Plot single points for top-right and top-left corners
+        top_right = corners[1]  # Assuming index 1 is the top-right corner
+        top_left = corners[0]   # Assuming index 0 is the top-left corner
+        
+        if idx == 0:
+            ax.scatter(top_right[0], top_right[1], top_right[2], color='red', label='top-right', zorder=0)
+            ax.scatter(top_left[0], top_left[1], top_left[2], color='blue', label='top-left',zorder=0)
+        else:
+            ax.scatter(top_right[0], top_right[1], top_right[2], color='red', zorder=0)
+            ax.scatter(top_left[0], top_left[1], top_left[2], color='blue', zorder=0)
+
+        # Add a label with the marker's ID at the center of the marker
+        marker_id = ids[idx][0]  # Get the corresponding marker ID
+        center_x = np.mean(x)
+        center_y = np.mean(y)
+        center_z = np.mean(z)
+        ax.text(center_x, center_y, center_z, f'{marker_id}', color='black', fontsize=15)
+
+    # Set equal aspect ratio for X, Y, Z
+    max_range = max(
+        max(all_x) - min(all_x),
+        max(all_y) - min(all_y),
+        max(all_z) - min(all_z)
+    ) / 2.0
+
+    mid_x = (max(all_x) + min(all_x)) * 0.5
+    mid_y = (max(all_y) + min(all_y)) * 0.5
+    mid_z = (max(all_z) + min(all_z)) * 0.5
+
+    ax.set_xlim(mid_x - max_range, mid_x + max_range)
+    ax.set_ylim(mid_y - max_range, mid_y + max_range)
+    ax.set_zlim(mid_z - max_range, mid_z + max_range)
+
+    # Customize the plot
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.legend()
+    ax.set_title('3D Plot of ArUco Marker Corners with IDs')
+    plt.show()
+    plt.pause(40)  # A small pause so that the figure gets updated
+
+
+def startTracking(queue):
+    global board
+        
+    board = setupArucoBoard()
+    RunVideoCaptureDetection(queue, "Capstone/Tracking/presentations/expert_data1.mp4")
+    queue.put(None)
+
+
+
