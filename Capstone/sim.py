@@ -4,7 +4,7 @@ import multiprocessing
 import logging
 from threading import Thread
 from queue import Queue
-from markerDetection import startTracking
+from Tracking.markerDetection import startTracking
 import time
 logging.basicConfig(format='%(levelname)s - %(asctime)s.%(msecs)03d: %(message)s',datefmt='%H:%M:%S', level=logging.DEBUG)
 
