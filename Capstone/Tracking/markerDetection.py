@@ -458,8 +458,9 @@ def RunVideoCaptureDetection(queue, vidCapturePath=None):
     with open('data.txt', 'w') as file:
         while rval:
             post_process_frame, data = ProcessFrame_2(frame, file)
-            queue.put(data)
-            print(f"Putting: {data} into queue\n")
+            if data[0] != None:
+                queue.put(data)
+                print(f"Putting: {data} into queue\n")
 
             rval, frame = vc.read()
             counter += 1

@@ -5,6 +5,7 @@ import logging
 from threading import Thread
 from queue import Queue
 from Tracking.markerDetection import startTracking
+from Filter.Filter_Graphs import process_file_2
 import time
 logging.basicConfig(format='%(levelname)s - %(asctime)s.%(msecs)03d: %(message)s',datefmt='%H:%M:%S', level=logging.DEBUG)
 
@@ -36,7 +37,7 @@ def main():
     finished = Queue()
 
     producer = Thread(target=startTracking, args=[work], daemon=True)
-    consumer = Thread(target=perform_work, args=[work], daemon=True)
+    consumer = Thread(target=process_file_2, args=[work], daemon=True)
 
     producer.start()
     consumer.start()
