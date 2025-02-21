@@ -455,7 +455,7 @@ def RunVideoCaptureDetection(queue, vidCapturePath=None):
 
     counter = 0
 
-    with open('data.txt', 'w') as file:
+    with open('Capstone/Tracking/data.txt', 'w') as file:
         while rval:
             post_process_frame, data = ProcessFrame_2(frame, file)
             if data[0] != None:
