@@ -10,7 +10,7 @@ from queue import Queue
 
 markerDict = aruco.getPredefinedDictionary(aruco.DICT_6X6_100)
 paramMarkers = aruco.DetectorParameters()
-calib_data_path = "Capstone/Tracking/calib_data/MultiMatrix.npz"
+calib_data_path = "calib_data/MultiMatrix.npz"
 calib_data = np.load(calib_data_path)
 
 cam_mat = calib_data["camMatrix"]
@@ -24,8 +24,8 @@ dodecahedron_edge_length_mm = 12.71
 inradius_mm = math.sqrt((25 + 11*math.sqrt(5))/40) * dodecahedron_edge_length_mm
 
 MARKER_SIZE = 11.77
-REFERENCE_RVEC = np.array([  1.12023183, -1.59600444,  1.34836274])
-REFERENCE_TVEC = np.array([ 64.50566511, 117.4107381 , 350.13044823])
+REFERENCE_RVEC = np.array([  1.9255842 , -0.0799233 ,  0.08470201])
+REFERENCE_TVEC = np.array([ 6.45959487,  35.55660422, 240.89031443])
 FPS = 30
 TIME_PER_FRAME = 1/FPS
 
@@ -317,14 +317,17 @@ def ProcessFrame_2(frame, file):
 
     if markerIds is not None:
 
-        rVec, tVec, _ = aruco.estimatePoseSingleMarkers(
-                markerCorners, MARKER_SIZE, cam_mat, dist_coef
-            )
+        # rVec, tVec, _ = aruco.estimatePoseSingleMarkers(
+        #         markerCorners, MARKER_SIZE, cam_mat, dist_coef
+        #     )
+        # for i, _ in enumerate(markerIds):
+        #         cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 4, 4)
+        # print(f"{rVec=}, {tVec=}")
+
         success, rotation, translation = aruco.estimatePoseBoard(markerCorners, markerIds, board, cam_mat, dist_coef, r_vectors, t_vectors)
         if success:
             frame = aruco.drawDetectedMarkers(frame, markerCorners, markerIds)
-            # for i, _ in enumerate(markerIds):
-            #     cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 4, 4)
+            
             cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rotation, translation, 4, 4)
             
             
@@ -352,7 +355,7 @@ def ProcessFrame_2(frame, file):
                     else:
                         z_val = z_data[-1]
             
-            print( f"{x_val} {y_val} {z_val} {pitch_val} {roll_val} {yaw_val}")
+            # print( f"{x_val} {y_val} {z_val} {pitch_val} {roll_val} {yaw_val}")
             rotation, translation = transform_to_world(np.array([[pitch_val, roll_val, yaw_val]]), np.array([[x_val, y_val, z_val]]))
 
             # Extract translation and rotation
@@ -475,7 +478,7 @@ def RunVideoCaptureDetection(queue, vidCapturePath=None):
             post_process_frame, data = ProcessFrame_2(frame, file)
             if data[0] != None:
                 queue.put(data)
-                print(f"Putting: {data} into queue\n")
+                # print(f"Putting: {data} into queue\n")
 
             rval, frame = vc.read()
             counter += 1
@@ -612,7 +615,7 @@ def startTracking(queue):
     global board
         
     board = setupArucoBoard()
-    RunVideoCaptureDetection(queue, "Capstone/Vein/Trial2/WIN_20250221_16_53_45_Pro.mp4")
+    RunVideoCaptureDetection(queue)
     
     queue.put(None)
 

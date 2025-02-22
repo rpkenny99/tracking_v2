@@ -1,53 +1,84 @@
 import cv2 as cv
+import cv2.aruco as aruco
 import os
 
-CHESS_BOARD_DIM = (9, 6)
+# --------------------------
+# ChArUco board parameters
+# --------------------------
+# Rows: 11, Columns: 18
+squares_x = 18   # number of squares along the X direction
+squares_y = 11   # number of squares along the Y direction
 
-n = 0  # image_counter
+# Keep units consistent: here, we use millimeters (mm).
+square_length = 11.58  # length of each ChArUco square (mm)
+marker_length = 8.67   # length of each ArUco marker inside the square (mm)
 
-# checking if  images dir is exist not, if not then create images directory
+# Choose a 4x4 dictionary. For example, DICT_4X4_50.
+aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_100)
+
+# Create the ChArUco board
+charuco_board = aruco.CharucoBoard(
+    (squares_x, squares_y), square_length, marker_length, aruco_dict
+)
+
+# --------------------------
+# Setup image saving directory
+# --------------------------
+n = 0  # image counter
 image_dir_path = "images"
 
-CHECK_DIR = os.path.isdir(image_dir_path)
-# if directory does not exist create
-if not CHECK_DIR:
+if not os.path.isdir(image_dir_path):
     os.makedirs(image_dir_path)
     print(f'"{image_dir_path}" Directory is created')
 else:
     print(f'"{image_dir_path}" Directory already Exists.')
 
-criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+# --------------------------
+# Function to detect a ChArUco board
+# --------------------------
+def detect_charuco_board(image, grayImage, board, dictionary):
+    # Detect ArUco markers in the image
+    corners, ids, rejected = aruco.detectMarkers(grayImage, dictionary)
 
+    board_detected = False
+    if len(corners) > 0:
+        # Interpolate ChArUco corners using the detected markers
+        retval, charucoCorners, charucoIds = aruco.interpolateCornersCharuco(
+            corners, ids, grayImage, board
+        )
 
-def detect_checker_board(image, grayImage, criteria, boardDimension):
-    ret, corners = cv.findChessboardCorners(grayImage, boardDimension)
-    if ret == True:
-        print("Checkerboard found")
-        corners1 = cv.cornerSubPix(grayImage, corners, (3, 3), (-1, -1), criteria)
-        image = cv.drawChessboardCorners(image, boardDimension, corners1, ret)
+        # If we get enough corners, consider the board "detected"
+        if charucoCorners is not None and charucoIds is not None and len(charucoCorners) > 3:
+            image = aruco.drawDetectedCornersCharuco(image, charucoCorners, charucoIds)
+            print("ChArUco board detected")
+            board_detected = True
+        else:
+            print("ChArUco board detection insufficient")
     else:
-        print("Checkerboard not found")
+        print("No ArUco markers detected")
 
-    return image, ret
+    return image, board_detected
 
+# --------------------------
+# Camera setup
+# --------------------------
+cap = cv.VideoCapture(1)
 
-cap = cv.VideoCapture(0)
-
-cap.set(cv.CAP_PROP_FPS, 30)
-
-# Set the camera resolution to 4K (3840x2160)
-cap.set(cv.CAP_PROP_FRAME_WIDTH, 4096)
-cap.set(cv.CAP_PROP_FRAME_HEIGHT, 2160)
-
-
+# --------------------------
+# Main loop
+# --------------------------
 while True:
-    _, frame = cap.read()
-    # frame = cv.imread('IMG_1747.jpg')
+    ret_val, frame = cap.read()
+    if not ret_val:
+        break
+
     copyFrame = frame.copy()
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
-    image, board_detected = detect_checker_board(frame, gray, criteria, CHESS_BOARD_DIM)
-    # print(ret)
+    # Detect and draw the ChArUco board
+    image, board_detected = detect_charuco_board(frame, gray, charuco_board, aruco_dict)
+
+    # Display how many images have been saved
     cv.putText(
         frame,
         f"saved_img : {n}",
@@ -63,16 +94,14 @@ while True:
     cv.imshow("copyFrame", copyFrame)
 
     key = cv.waitKey(1)
-
     if key == ord("q"):
         break
-    if key == ord("s") and board_detected == True:
-        # storing the checker board image
+    if key == ord("s") and board_detected:
+        # Save the image only if a valid ChArUco board was detected
         cv.imwrite(f"{image_dir_path}/image{n}.png", copyFrame)
-
         print(f"saved image number {n}")
-        n += 1  # incrementing the image counter
+        n += 1
+
 cap.release()
 cv.destroyAllWindows()
-
 print("Total saved Images:", n)
