@@ -6,7 +6,6 @@ from cv2 import aruco
 import os
 import matplotlib.pyplot as plt
 import math
-from scipy.spatial.transform import Rotation as R
 from queue import Queue
 
 markerDict = aruco.getPredefinedDictionary(aruco.DICT_6X6_100)
@@ -25,8 +24,8 @@ dodecahedron_edge_length_mm = 12.71
 inradius_mm = math.sqrt((25 + 11*math.sqrt(5))/40) * dodecahedron_edge_length_mm
 
 MARKER_SIZE = 11.77
-REFERENCE_RVEC = np.array([1.2639763 ,  1.45933559, -1.29766979])
-REFERENCE_TVEC = np.array([95.22124999,  73.81633065, 304.82649138])
+REFERENCE_RVEC = np.array([  1.12023183, -1.59600444,  1.34836274])
+REFERENCE_TVEC = np.array([ 64.50566511, 117.4107381 , 350.13044823])
 FPS = 30
 TIME_PER_FRAME = 1/FPS
 
@@ -109,7 +108,7 @@ def transform_corners_to_world(local_corners, rVec_world, tVec_world):
     return np.array(world_corners)
 
 
-def transform_to_world(rVec, tVec, rVec_origin, tVec_origin):
+def transform_to_world(rVec, tVec, rVec_origin=REFERENCE_RVEC, tVec_origin=REFERENCE_TVEC):
     """
     Transforms the pose of a marker from camera coordinates to world coordinates.
     The world coordinate system is defined by the reference marker (rVec_origin, tVec_origin).
@@ -324,16 +323,17 @@ def ProcessFrame_2(frame, file):
         success, rotation, translation = aruco.estimatePoseBoard(markerCorners, markerIds, board, cam_mat, dist_coef, r_vectors, t_vectors)
         if success:
             frame = aruco.drawDetectedMarkers(frame, markerCorners, markerIds)
-            for i, _ in enumerate(markerIds):
-                cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 4, 4)
+            # for i, _ in enumerate(markerIds):
+            #     cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 4, 4)
             cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rotation, translation, 4, 4)
+            
             
             # Extract translation and rotation
             x_val = translation[0][0]
             y_val = translation[1][0]
             z_val = translation[2][0]
 
-            rotation = ensure_marker_faces_camera(rotation)
+            # rotation = ensure_marker_faces_camera(rotation)
 
             pitch_val = rotation[0][0]
             roll_val  = rotation[1][0]
@@ -351,6 +351,21 @@ def ProcessFrame_2(frame, file):
                         consequtive_failures = 0
                     else:
                         z_val = z_data[-1]
+            
+            print( f"{x_val} {y_val} {z_val} {pitch_val} {roll_val} {yaw_val}")
+            rotation, translation = transform_to_world(np.array([[pitch_val, roll_val, yaw_val]]), np.array([[x_val, y_val, z_val]]))
+
+            # Extract translation and rotation
+            x_val = translation[0][0]
+            y_val = translation[1][0]
+            z_val = translation[2][0]
+
+            # rotation = ensure_marker_faces_camera(rotation)
+
+            pitch_val = rotation[0][0]
+            roll_val  = rotation[1][0]
+            yaw_val   = rotation[2][0]
+            print( f"{x_val} {y_val} {z_val} {pitch_val} {roll_val} {yaw_val}")
 
             # Write to text file
             result_string = f"{x_val} {y_val} {z_val} {pitch_val} {roll_val} {yaw_val}"
@@ -439,7 +454,7 @@ def RunVideoCaptureDetection(queue, vidCapturePath=None):
     
     # init_realtime_plot()
     if vidCapturePath is None:
-        vc = cv2.VideoCapture(0)
+        vc = cv2.VideoCapture(1)
     else:
         vc = cv2.VideoCapture(vidCapturePath)
 
@@ -597,8 +612,10 @@ def startTracking(queue):
     global board
         
     board = setupArucoBoard()
-    RunVideoCaptureDetection(queue, "Capstone/Tracking/presentations/expert_data1.mp4")
+    RunVideoCaptureDetection(queue, "Capstone/Vein/Trial2/WIN_20250221_16_53_45_Pro.mp4")
+    
     queue.put(None)
 
-
+queue = Queue()
+startTracking(queue)
 
