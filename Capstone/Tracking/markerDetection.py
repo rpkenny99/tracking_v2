@@ -23,9 +23,13 @@ consequtive_failures = 0
 dodecahedron_edge_length_mm = 12.71
 inradius_mm = math.sqrt((25 + 11*math.sqrt(5))/40) * dodecahedron_edge_length_mm
 
+length_of_rod = 52.72
+
+first_data = True
+
 MARKER_SIZE = 11.77
-REFERENCE_RVEC = np.array([  1.9255842 , -0.0799233 ,  0.08470201])
-REFERENCE_TVEC = np.array([ 6.45959487,  35.55660422, 240.89031443])
+REFERENCE_RVEC = np.array([1.66040354, -0.43797448,  0.4378116])
+REFERENCE_TVEC = np.array([-132.74267261,   62.84248454,  339.17614627])
 FPS = 30
 TIME_PER_FRAME = 1/FPS
 
@@ -317,19 +321,63 @@ def ProcessFrame_2(frame, file):
 
     if markerIds is not None:
 
-        # rVec, tVec, _ = aruco.estimatePoseSingleMarkers(
-        #         markerCorners, MARKER_SIZE, cam_mat, dist_coef
-        #     )
-        # for i, _ in enumerate(markerIds):
-        #         cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 4, 4)
-        # print(f"{rVec=}, {tVec=}")
+        rVec, tVec, _ = aruco.estimatePoseSingleMarkers(
+                markerCorners, MARKER_SIZE, cam_mat, dist_coef
+            )
+        for i, id in enumerate(markerIds):
+                # cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 4, 4)
+                print(f"{id=}: {rVec[i]=}, {tVec[i]=}")
 
         success, rotation, translation = aruco.estimatePoseBoard(markerCorners, markerIds, board, cam_mat, dist_coef, r_vectors, t_vectors)
         if success:
             frame = aruco.drawDetectedMarkers(frame, markerCorners, markerIds)
+
+            # rotation, _ = cv2.Rodrigues(rotation)
+
+            # # Extract the marker's local Z-axis (third column of R_marker)
+            # local_z_axis = rotation[:, 2]  # The third column is the Z-axis
+
+            # # Convert the rotation into radians
+            # angle_rad = np.deg2rad(72*2)
+
+            # # Create a rotation matrix about the marker's Z-axis
+            # R_local_z, _ = cv2.Rodrigues(local_z_axis * angle_rad)
+
+            # # Apply the rotation
+            # rotation = R_local_z @ rotation  # Rotate marker in its local frame
+
+            # local_y_axis = rotation[:, 1]  # The third column is the Z-axis
+
+            # # Convert the rotation into radians
+            # angle_rad = np.deg2rad(7.7)
+
+            #  # Create a rotation matrix about the marker's Z-axis
+            # R_local_y, _ = cv2.Rodrigues(local_y_axis * angle_rad)
+
+            # # Apply the rotation
+            # rotation = R_local_y @ rotation  # Rotate marker in its local frame
+
+            # # Extract the marker's local Z-axis (third column of R_marker)
+            # local_z_axis = rotation[:, 2]  # The third column is the Z-axis
+
+            # # Convert the rotation into radians
+            # angle_rad = np.deg2rad(-7)
+
+            # # Create a rotation matrix about the marker's Z-axis
+            # R_local_z, _ = cv2.Rodrigues(local_z_axis * angle_rad)
+
+            # # Apply the rotation
+            # rotation = R_local_z @ rotation  # Rotate marker in its local frame
             
-            cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rotation, translation, 4, 4)
+
+            # print(f"{rotation}")
+
+            # translation = translation + (inradius_mm + length_of_rod) * rotation[:, 0].reshape(3, 1)
             
+            # # Convert back to rotation vector
+            # rotation, _ = cv2.Rodrigues(rotation)
+
+            cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rotation, translation, 7, 4)
             
             # Extract translation and rotation
             x_val = translation[0][0]
@@ -347,13 +395,13 @@ def ProcessFrame_2(frame, file):
                 y_val *= -1
                 z_val *= -1
 
-            if len(z_data) != 0:
-                if z_val < z_data[-1] - inradius_mm/2:
-                    consequtive_failures += 1
-                    if consequtive_failures == 3:
-                        consequtive_failures = 0
-                    else:
-                        z_val = z_data[-1]
+            # if len(z_data) != 0:
+            #     if z_val < z_data[-1] - inradius_mm/2:
+            #         consequtive_failures += 1
+            #         if consequtive_failures == 3:
+            #             consequtive_failures = 0
+            #         else:
+            #             z_val = z_data[-1]
             
             # print( f"{x_val} {y_val} {z_val} {pitch_val} {roll_val} {yaw_val}")
             rotation, translation = transform_to_world(np.array([[pitch_val, roll_val, yaw_val]]), np.array([[x_val, y_val, z_val]]))
@@ -372,6 +420,8 @@ def ProcessFrame_2(frame, file):
 
             # Write to text file
             result_string = f"{x_val} {y_val} {z_val} {pitch_val} {roll_val} {yaw_val}"
+
+            file.write(result_string + "\n")
             
             # Update the real-time plot
             # update_realtime_plot(pitch_val, roll_val, yaw_val)
@@ -453,11 +503,12 @@ def dodecahedron_aruco_points():
     return all_aruco_points
 
 def RunVideoCaptureDetection(queue, vidCapturePath=None):
+    global first_data
     print("Trying to open video capture device")
     
     # init_realtime_plot()
     if vidCapturePath is None:
-        vc = cv2.VideoCapture(1)
+        vc = cv2.VideoCapture(0)
     else:
         vc = cv2.VideoCapture(vidCapturePath)
 
@@ -477,8 +528,13 @@ def RunVideoCaptureDetection(queue, vidCapturePath=None):
         while rval:
             post_process_frame, data = ProcessFrame_2(frame, file)
             if data[0] != None:
-                queue.put(data)
+                if first_data:
+                    # Discard first data because it is faulty
+                    first_data = False
+                else:
+                    queue.put(data)
                 # print(f"Putting: {data} into queue\n")
+
 
             rval, frame = vc.read()
             counter += 1
@@ -619,6 +675,6 @@ def startTracking(queue):
     
     queue.put(None)
 
-queue = Queue()
-startTracking(queue)
+# queue = Queue()
+# startTracking(queue)
 

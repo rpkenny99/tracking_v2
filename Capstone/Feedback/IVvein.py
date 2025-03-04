@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 # Step 1: Load vein data from Excel files
-left_vein_file = "leftveinvein2.xlsx"  # Replace with the actual file path
-right_vein_file = "rightvein2.xlsx"  # Replace with the actual file path
+left_vein_file = "Capstone/Vein/leftveinvein2_smoothed4.xlsx"  # Replace with the actual file path
+right_vein_file = "Capstone/Vein/rightvein2.xlsx"  # Replace with the actual file path
 
 # Assuming Excel files have columns Tx, Ty, Tz for vein coordinates
 left_data = pd.read_excel(left_vein_file)
@@ -37,35 +37,53 @@ points_right_translated = points_right + translation_vector
 
 # Step 4: Rotation - rotate veins to lie flat (e.g., onto the x-y plane)
 # Define a rotation matrix for aligning with the x-y plane
-angle = np.radians(-90)  # Rotate around the x-axis to flatten
-rotation_matrix = np.array([[1, 0, 0],
-                             [0, np.cos(angle), -np.sin(angle)],
-                             [0, np.sin(angle), np.cos(angle)]])
+angle_x = np.radians(-90)  # Rotate around the x-axis to flatten
+rotation_matrix_x = np.array([[1, 0, 0],
+                               [0, np.cos(angle_x), -np.sin(angle_x)],
+                               [0, np.sin(angle_x), np.cos(angle_x)]])
 
-points_left_flat = points_left_translated @ rotation_matrix.T
-points_right_flat = points_right_translated @ rotation_matrix.T
+points_left_flat = points_left_translated @ rotation_matrix_x.T
+points_right_flat = points_right_translated @ rotation_matrix_x.T
 
-# Step 5: Plot original and transformed veins
+# Step 5: Rotate points 90 degrees about the y-axis
+angle_y = np.radians(90)  # Rotate around the y-axis
+rotation_matrix_y = np.array([[np.cos(angle_y), 0, np.sin(angle_y)],
+                               [0, 1, 0],
+                               [-np.sin(angle_y), 0, np.cos(angle_y)]])
+
+points_left_rotated = points_left_flat @ rotation_matrix_y.T
+points_right_rotated = points_right_flat @ rotation_matrix_y.T
+
+# Step 6: Translate all points such that the last point of the left vein is at the origin
+final_translation_vector = -points_left_rotated[-1]
+points_left_rotated = points_left_rotated + final_translation_vector
+points_right_rotated = points_right_rotated + final_translation_vector
+
+# Save transformed veins to separate text files
+np.savetxt("left_veins.txt", points_left_rotated, fmt="%.6f")
+np.savetxt("right_veins.txt", points_right_rotated, fmt="%.6f")
+
+# Step 7: Plot original and transformed veins
 fig = plt.figure(figsize=(10, 5))
 
-# Original veins
-ax1 = fig.add_subplot(121, projection='3d')
-ax1.plot(points_left[:, 0], points_left[:, 1], points_left[:, 2], 'b', label="Left Vein")
-ax1.plot(points_right[:, 0], points_right[:, 1], points_right[:, 2], 'r', label="Right Vein")
-ax1.set_title("Original Veins")
-ax1.set_xlabel("Tx")
-ax1.set_ylabel("Ty")
-ax1.set_zlabel("Tz")
-ax1.legend()
+def set_axes_equal(ax):
+    """Set 3D plot axes to the same scale."""
+    limits = np.array([ax.get_xlim(), ax.get_ylim(), ax.get_zlim()])
+    max_range = np.ptp(limits)
+    mean_vals = np.mean(limits, axis=1)
+    ax.set_xlim(mean_vals[0] - max_range/2, mean_vals[0] + max_range/2)
+    ax.set_ylim(mean_vals[1] - max_range/2, mean_vals[1] + max_range/2)
+    ax.set_zlim(mean_vals[2] - max_range/2, mean_vals[2] + max_range/2)
 
-# Transformed veins
-ax2 = fig.add_subplot(122, projection='3d')
-ax2.plot(points_left_flat[:, 0], points_left_flat[:, 1], points_left_flat[:, 2], 'b', label="Left Vein (Flat)")
-ax2.plot(points_right_flat[:, 0], points_right_flat[:, 1], points_right_flat[:, 2], 'r', label="Right Vein (Flat)")
-ax2.set_title("Transformed Veins (Flat)")
-ax2.set_xlabel("Tx")
-ax2.set_ylabel("Ty")
-ax2.set_zlabel("Tz")
-ax2.legend()
+ax = fig.add_subplot(111, projection='3d')
+ax.plot(points_left_rotated[:, 0], points_left_rotated[:, 1], points_left_rotated[:, 2], 'b-', label="Left Vein (Aligned)")
+ax.plot(points_right_rotated[:, 0], points_right_rotated[:, 1], points_right_rotated[:, 2], 'r-', label="Right Vein (Aligned)")
+
+# Labels and title
+ax.set_xlabel("Tx")
+ax.set_ylabel("Ty")
+ax.set_zlabel("Tz")
+ax.set_title("Veins Aligned to Last Left Vein Point")
+ax.legend()
 
 plt.show()

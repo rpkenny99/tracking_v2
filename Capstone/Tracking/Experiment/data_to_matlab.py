@@ -3,7 +3,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import pandas as pd
 
 # File path
-file_path = 'data.txt'
+file_path = 'Capstone/Filter/filtered_data.txt'
+# file_path = 'Capstone/Tracking/data.txt'
 
 # Read the text file using pandas.
 # Each line of data.txt has x, y, z, pitch, roll, yaw (6 columns),
