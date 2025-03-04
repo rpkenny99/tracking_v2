@@ -251,4 +251,6 @@ def plot_filtered_and_translated_data(filtered_file, left_vein_file, right_vein_
 
 
 if __name__ == "__main__":
-    plot_filtered_and_translated_data("Capstone/Filter/filtered_data.txt", "left_vein_final.txt", "right_vein_final.txt")
+    plot_filtered_and_translated_data("Capstone/Filter/filtered_data.txt",
+                                      "Capstone/Vein/left_vein_final.txt",
+                                      "Capstone/Vein/right_vein_final.txt")

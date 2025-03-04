@@ -10,7 +10,7 @@ from queue import Queue
 
 markerDict = aruco.getPredefinedDictionary(aruco.DICT_6X6_100)
 paramMarkers = aruco.DetectorParameters()
-calib_data_path = "calib_data/MultiMatrix.npz"
+calib_data_path = r"Capstone\Tracking\Calibration\calib_data\MultiMatrix.npz"
 calib_data = np.load(calib_data_path)
 
 cam_mat = calib_data["camMatrix"]
@@ -33,13 +33,9 @@ REFERENCE_TVEC = np.array([-132.74267261,   62.84248454,  339.17614627])
 FPS = 30
 TIME_PER_FRAME = 1/FPS
 
-z_average = []
-
 x_data = []
 y_data = []
 z_data = []
-
-pitch_data = []
 
 def init_realtime_plot():
     global fig, ax, scatter_handle
@@ -90,28 +86,6 @@ def update_realtime_plot(x, y, z):
 def DisplayFrame(frame):
     cv2.imshow("preview", frame)
 
-def transform_corners_to_world(local_corners, rVec_world, tVec_world):
-    """
-    Transforms the marker corners from the marker's local coordinate system to the world coordinate system.
-
-    :param local_corners: 3D coordinates of the marker corners in the marker's local coordinate system (4x3 array).
-    :param rVec_world: Rotation vector representing the orientation of the marker in the world coordinate system (3x1).
-    :param tVec_world: Translation vector representing the position of the marker in the world coordinate system (3x1).
-    :return: Array of 3D world coordinates for each corner.
-    """
-    # Convert the rotation vector to a rotation matrix
-    R_world, _ = cv2.Rodrigues(rVec_world)
-
-    # Transform each local corner to the world coordinate system
-    world_corners = []
-    for corner in local_corners:
-        # Apply rotation and translation to get world coordinates
-        world_point = R_world @ corner.reshape(3, 1) + tVec_world.reshape(3, 1)
-        world_corners.append(world_point.flatten())
-
-    return np.array(world_corners)
-
-
 def transform_to_world(rVec, tVec, rVec_origin=REFERENCE_RVEC, tVec_origin=REFERENCE_TVEC):
     """
     Transforms the pose of a marker from camera coordinates to world coordinates.
@@ -145,117 +119,6 @@ def transform_to_world(rVec, tVec, rVec_origin=REFERENCE_RVEC, tVec_origin=REFER
     rVec_world, _ = cv2.Rodrigues(R_world)
 
     return rVec_world, t_world
-
-def plot_marker_corners(corners):
-    """
-    Plots the 3D coordinates of marker corners. Each time this function is called,
-    the plot is updated with the new data.
-
-    :param corners: A list of sets of corners, where each set contains the 3D coordinates of the corners.
-                    The input should be in the form [[(x1, y1, z1), (x2, y2, z2), ...], ...] for multiple markers.
-    """
-    # Clear the current plot
-    ax.cla()
-
-    # Loop through each marker's set of corners
-    for set_of_corners in corners:
-        # Extract x, y, z coordinates for the current set of corners
-        x = [corner[0] for corner in set_of_corners]
-        y = [corner[1] for corner in set_of_corners]
-        z = [corner[2] for corner in set_of_corners]
-
-        # Plot the corners for this marker
-        ax.scatter(x, y, z, marker='o', s=50, label='Marker Corners')
-
-        # Optionally, you can connect the corners to form the marker's shape
-        # Closing the loop to form a quadrilateral
-        ax.plot(x + [x[0]], y + [y[0]], z + [z[0]], 'b-')
-
-    # Set axis labels
-    ax.set_xlabel('X (meters)')
-    ax.set_ylabel('Y (meters)')
-    ax.set_zlabel('Z (meters)')
-    ax.set_title('3D Plot of Marker Corners')
-
-    # Display legend
-    ax.legend()
-
-    # Draw the updated plot and flush events
-    plt.draw()
-    fig.canvas.flush_events()
-
-def plot_marker_rotation(avg_pose, rotated_poses):
-    global ax2
-    ax2.cla()  # Clear the current plot to reuse the same figure and axis
-
-    scale_factor = 0.05
-
-    if rotated_poses is not None:
-        for rotMat in rotated_poses:
-            # Define the origin and scaled axes as column vectors
-            origin = np.array([0, 0, 0])
-            x_axis = scale_factor * np.array([1, 0, 0]).reshape(3, 1)
-            y_axis = scale_factor * np.array([0, 1, 0]).reshape(3, 1)
-            z_axis = scale_factor * np.array([0, 0, 1]).reshape(3, 1)
-
-            # Apply the rotation to each scaled axis and flatten the result to get 1D arrays
-            x_rotated = (rotMat @ x_axis).flatten()
-            y_rotated = (rotMat @ y_axis).flatten()
-            z_rotated = (rotMat @ z_axis).flatten()
-
-            # Plot the rotated axes with short lines
-            ax2.quiver(*origin, *x_rotated, color='r', linestyle='dashed', label='Rotated X')
-            ax2.quiver(*origin, *y_rotated, color='g', linestyle='dashed', label='Rotated Y')
-            ax2.quiver(*origin, *z_rotated, color='b', linestyle='dashed', label='Rotated Z')
-
-    # saved_markers = fix_faulty_markers(faulty_markers, faulty_marker_ids)
-    # saved_markers = adjust
-
-    if avg_pose is not None:
-        # Define the origin and scaled axes as column vectors
-        origin = np.array([0, 0, 0])
-        x_axis = scale_factor * np.array([1, 0, 0]).reshape(3, 1)
-        y_axis = scale_factor * np.array([0, 1, 0]).reshape(3, 1)
-        z_axis = scale_factor * np.array([0, 0, 1]).reshape(3, 1)
-
-        # Apply the rotation to each scaled axis and flatten the result to get 1D arrays
-        x_rotated = (avg_pose @ x_axis).flatten()
-        y_rotated = (avg_pose @ y_axis).flatten()
-        z_rotated = (avg_pose @ z_axis).flatten()
-
-        # Plot the rotated axes with short lines
-        ax2.quiver(*origin, *x_rotated, color='r', linestyle='solid', label='Rotated X')
-        ax2.quiver(*origin, *y_rotated, color='g', linestyle='solid', label='Rotated Y')
-        ax2.quiver(*origin, *z_rotated, color='b', linestyle='solid', label='Rotated Z')
-
-    # Only add the legend once
-    ax2.legend()
-    plt.draw()
-    fig2.canvas.flush_events()
-
-def plot_singular_points(points):
-    """
-    Plots singular 3D points. Each time this function is called,
-    the plot is updated with the new data.
-
-    :param points: A list of 3D points in the form [(x1, y1, z1), (x2, y2, z2), ...]
-    """
-    # Clear the current plot
-    global ax
-
-    ax.cla()
-
-    # Extract x, y, z coordinates from the list of points
-    x = [point[0] for point in points]
-    y = [point[1] for point in points]
-    z = [point[2] for point in points]
-
-    # Plot the singular points
-    ax.scatter(x, y, z, marker='o', s=50, c='r', label='Singular Points')
-
-    # Draw the updated plot and flush events
-    plt.draw()
-    fig.canvas.flush_events()
 
 def compute_velocity(rvec_prev, tvec_prev, rvec_curr, tvec_curr, delta_t):
     # Compute translational velocity
@@ -508,7 +371,7 @@ def RunVideoCaptureDetection(queue, vidCapturePath=None):
     
     # init_realtime_plot()
     if vidCapturePath is None:
-        vc = cv2.VideoCapture(0)
+        vc = cv2.VideoCapture(1)
     else:
         vc = cv2.VideoCapture(vidCapturePath)
 
@@ -675,6 +538,6 @@ def startTracking(queue):
     
     queue.put(None)
 
-# queue = Queue()
-# startTracking(queue)
+queue = Queue()
+startTracking(queue)
 
