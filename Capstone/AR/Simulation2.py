@@ -4,19 +4,46 @@ import cv2
 from OpenGL.GL import *
 from OpenGL.GLUT import *
 from OpenGL.GLU import *
-# import viewer_control2 
+# import viewer_control2
+
 
 # Initialize global variables for perspective data
 viewer_position = [0, 0, 5]  # Starting position (x, y, z)
 viewer_orientation = [0, 0, 0]  # Starting orientation (pitch, yaw, roll)
+countV = 0
 
 # Function to simulate receiving perspective data
 def update_perspective():
-    global viewer_position, viewer_orientation
+    global viewer_position, viewer_orientation, countV
+    countV += 1
+    # while True:
+    #     item = queue.get()               # blocking get
+    #     if item is None:               # <-- sentinel
+    #         break
+    #     # Otherwise, process item
+    #     print(f"Consumed: {item}")
+    #     x_val, y_val, z_val, pitch_val, roll_val, yaw_val = item
+    #     viewer_position[0], viewer_position[1], viewer_position[2], viewer_orientation[0], viewer_orientation[1], viewer_orientation[2] = item
+    #     # viewer_position, viewer_orientation = item
+
+
+
+
     # viewer_control2.update_perspective()
     # Simulate perspective change (you will replace this with real data)
-    # Move slightly to the right viewer_position[0] += 0.01  
-    # Yaw rotation viewer_orientation[1] += 0.1  
+    # Move slightly to the right 
+    # viewer_position[1] += 0.01  
+    # Yaw rotation 
+    # viewer_orientation[1] += 0.1 
+
+    if countV == 1000:
+        countV = 00
+
+    elif countV >= 500:
+        viewer_position[1] -= 0.01 
+        
+    else:
+        viewer_position[1] += 0.01
     
 
     
@@ -28,28 +55,104 @@ def init():
     glEnable(GL_DEPTH_TEST)
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
-    gluPerspective(45, 800/600, 0.1, 50.0)
+    # gluPerspective(45, 800/600, 0.1, 50.0)
+    gluPerspective(45, 1024/768, 0.1, 50.0)
     glMatrixMode(GL_MODELVIEW)
 
 # Draw the physical object (a simple square)
+
 def draw_physical_object():
-    glColor3f(0.0, 1.0, 0.0)  # Green color
+    glEnable(GL_BLEND)  # Enable transparency
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)  # Transparency mode
+
+    glColor4f(0.0, 1.0, 0.0, 1.0)  # Green color (Fully Opaque for Wireframe)
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)  # Wireframe mode
+
     glBegin(GL_QUADS)
-    glVertex3f(-1.0, -1.0, 0.0)
-    glVertex3f(1.0, -1.0, 0.0)
-    glVertex3f(1.0, 1.0, 0.0)
-    glVertex3f(-1.0, 1.0, 0.0)
+
+    # Front face
+    glVertex3f(-1.0, -1.0,  0.5)
+    glVertex3f( 1.0, -1.0,  0.5)
+    glVertex3f( 1.0,  1.0,  0.5)
+    glVertex3f(-1.0,  1.0,  0.5)
+
+    # Back face
+    glVertex3f(-1.0, -1.0, -0.5)
+    glVertex3f(-1.0,  1.0, -0.5)
+    glVertex3f( 1.0,  1.0, -0.5)
+    glVertex3f( 1.0, -1.0, -0.5)
+
+    # Left face
+    glVertex3f(-1.0, -1.0, -0.5)
+    glVertex3f(-1.0, -1.0,  0.5)
+    glVertex3f(-1.0,  1.0,  0.5)
+    glVertex3f(-1.0,  1.0, -0.5)
+
+    # Right face
+    glVertex3f( 1.0, -1.0, -0.5)
+    glVertex3f( 1.0,  1.0, -0.5)
+    glVertex3f( 1.0,  1.0,  0.5)
+    glVertex3f( 1.0, -1.0,  0.5)
+
+    # Top faceq3
+    glVertex3f(-1.0,  1.0, -0.5)
+    glVertex3f(-1.0,  1.0,  0.5)
+    glVertex3f( 1.0,  1.0,  0.5)
+    glVertex3f( 1.0,  1.0, -0.5)
+
+    # Bottom face
+    glVertex3f(-1.0, -1.0, -0.5)
+    glVertex3f( 1.0, -1.0, -0.5)
+    glVertex3f( 1.0, -1.0,  0.5)
+    glVertex3f(-1.0, -1.0,  0.5)
+
     glEnd()
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)  # Restore solid mode
+
+
+# def draw_physical_object():
+#     glColor3f(0.0, 1.0, 0.0)  # Green color
+#     glBegin(GL_QUADS)
+#     glVertex3f(-1.0, -1.0, 0.0)
+#     glVertex3f(1.0, -1.0, 0.0)
+#     glVertex3f(1.0, 1.0, 0.0)
+#     glVertex3f(-1.0, 1.0, 0.0)
+#     glEnd()
 
 # Draw the overlay image
 def draw_overlay():
-    glColor4f(1.0, 0.0, 0.0, 0.5)  # Red color with transparency
+    glColor4f(1.0, 0.0, 0.0, 1.0)  # Red color with transparency
     glBegin(GL_QUADS)
     glVertex3f(-1.0, -1.0, 0.01)  # Slightly in front of the object
     glVertex3f(1.0, -1.0, 0.01)
     glVertex3f(1.0, 1.0, 0.01)
     glVertex3f(-1.0, 1.0, 0.01)
     glEnd()
+
+def draw_vein_overlay():
+    glColor4f(1.0, 0.0, 0.0, 0.8)  # Red, semi-transparent veins
+    glLineWidth(2.0)  # Adjust thickness of the veins
+
+    glBegin(GL_LINES)
+    # Example vein structure (you can add more complexity)
+    glVertex3f(-0.5, 0.0, 0.01)
+    glVertex3f(0.0, 0.3, 0.01)
+
+    glVertex3f(0.0, 0.3, 0.01)
+    glVertex3f(0.3, 0.5, 0.01)
+
+    glVertex3f(0.0, 0.3, 0.01)
+    glVertex3f(-0.3, 0.6, 0.01)
+
+    glVertex3f(-0.3, 0.6, 0.01)
+    glVertex3f(-0.5, 0.8, 0.01)
+
+    glVertex3f(0.3, 0.5, 0.01)
+    glVertex3f(0.5, 0.7, 0.01)
+    glEnd()
+
 
 # Display function
 def display():
@@ -59,7 +162,7 @@ def display():
     # Apply viewer perspective transformations
     gluLookAt(viewer_position[0], viewer_position[1], viewer_position[2],
               0, 0, 0,  # Looking at the origin
-              0, 1, 0)  # Up direction
+              0, 1, 0)  # Up direction, orientation
 
     # Apply rotation based on orientation
     glRotatef(viewer_orientation[0], 1, 0, 0)  # Pitch
@@ -68,7 +171,8 @@ def display():
 
     # Draw physical object and overlay
     draw_physical_object()
-    draw_overlay()
+    # draw_overlay()
+    draw_vein_overlay()
 
     glutSwapBuffers()
 
@@ -83,11 +187,22 @@ def keyboard(key, x, y):
         glutDestroyWindow(window_id)  # Destroy the window
         sys.exit(0)  # Exit the program cleanly
 
+#  def main(queue):
+#     while True:
+#         item = queue.get()               # blocking get
+#         if item is None:               # <-- sentinel
+#             break
+#         # Otherwise, process item
+#         print(f"Consumed: {item}")
+#         x_val, y_val, z_val, pitch_val, roll_val, yaw_val = item
+
+        
+
 # Main function
 def main():
     glutInit(sys.argv)
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
-    glutInitWindowSize(800, 600)
+    glutInitWindowSize(glutGet(GLUT_SCREEN_WIDTH), glutGet(GLUT_SCREEN_HEIGHT))     # if not full screen, use 800,600
     glutCreateWindow("AR Projection Simulation")
     init()
     glutDisplayFunc(display)
