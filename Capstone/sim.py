@@ -6,6 +6,7 @@ from threading import Thread
 from queue import Queue
 from Tracking.markerDetection import startTracking
 from Filter.Filter_Graphs import process_file_2
+from SignalProcessing.signal_processing import sig_processing
 import time
 logging.basicConfig(format='%(levelname)s - %(asctime)s.%(msecs)03d: %(message)s',datefmt='%H:%M:%S', level=logging.DEBUG)
 
@@ -32,21 +33,26 @@ def perform_work(work):
         display(f"Consumed: {item}")
 
 def main():
-    max =50
-    work = Queue()
-    finished = Queue()
+    raw = Queue()
+    filtered = Queue()
 
-    producer = Thread(target=startTracking, args=[work], daemon=True)
-    consumer = Thread(target=process_file_2, args=[work], daemon=True)
+    raw_tracking = Thread(target=startTracking, args=[raw], daemon=True)
+    filter = Thread(target=process_file_2, args=[raw, filtered], daemon=True)
+    # signal_processing = Thread(target=sig_processing, args=[filtered], daemon=True)
 
-    producer.start()
-    consumer.start()
+    raw_tracking.start()
+    filter.start()
+    # signal_processing.start()
 
-    producer.join()
-    display('Producer has finished')
+    raw_tracking.join()
+    display('raw tracking has finished')
 
-    consumer.join()
-    display('Consumer has finished')
+    filter.join()
+    display('filter has finished')
+
+    # signal_processing.join()
+    # display('signal processing has finished')
+
 
     display('Finished')
 

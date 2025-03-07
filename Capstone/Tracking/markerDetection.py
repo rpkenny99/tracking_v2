@@ -8,9 +8,12 @@ import matplotlib.pyplot as plt
 import math
 from queue import Queue
 
+import pandas as pd
+import itertools
+
 markerDict = aruco.getPredefinedDictionary(aruco.DICT_6X6_100)
 paramMarkers = aruco.DetectorParameters()
-calib_data_path = "calib_data/MultiMatrix.npz"
+calib_data_path = r"Capstone\Tracking\Calibration\calib_data\MultiMatrix.npz"
 calib_data = np.load(calib_data_path)
 
 cam_mat = calib_data["camMatrix"]
@@ -23,19 +26,22 @@ consequtive_failures = 0
 dodecahedron_edge_length_mm = 12.71
 inradius_mm = math.sqrt((25 + 11*math.sqrt(5))/40) * dodecahedron_edge_length_mm
 
+length_of_rod = 52.72
+
+first_data = True
+
 MARKER_SIZE = 11.77
-REFERENCE_RVEC = np.array([  1.9255842 , -0.0799233 ,  0.08470201])
-REFERENCE_TVEC = np.array([ 6.45959487,  35.55660422, 240.89031443])
+REFERENCE_RVEC = np.array([1.37187207,  1.48928084, -1.04767104])
+REFERENCE_TVEC = np.array([11.85121122,  20.1426366 , 332.84349128])
 FPS = 30
 TIME_PER_FRAME = 1/FPS
 
-z_average = []
+rotation_fixed = np.array([1.36403722, 0.59380292, 2.05743332])
+translation_fixed = np.array([-277.35213117,  -39.18417515,  236.98457337])
 
 x_data = []
 y_data = []
 z_data = []
-
-pitch_data = []
 
 def init_realtime_plot():
     global fig, ax, scatter_handle
@@ -86,28 +92,6 @@ def update_realtime_plot(x, y, z):
 def DisplayFrame(frame):
     cv2.imshow("preview", frame)
 
-def transform_corners_to_world(local_corners, rVec_world, tVec_world):
-    """
-    Transforms the marker corners from the marker's local coordinate system to the world coordinate system.
-
-    :param local_corners: 3D coordinates of the marker corners in the marker's local coordinate system (4x3 array).
-    :param rVec_world: Rotation vector representing the orientation of the marker in the world coordinate system (3x1).
-    :param tVec_world: Translation vector representing the position of the marker in the world coordinate system (3x1).
-    :return: Array of 3D world coordinates for each corner.
-    """
-    # Convert the rotation vector to a rotation matrix
-    R_world, _ = cv2.Rodrigues(rVec_world)
-
-    # Transform each local corner to the world coordinate system
-    world_corners = []
-    for corner in local_corners:
-        # Apply rotation and translation to get world coordinates
-        world_point = R_world @ corner.reshape(3, 1) + tVec_world.reshape(3, 1)
-        world_corners.append(world_point.flatten())
-
-    return np.array(world_corners)
-
-
 def transform_to_world(rVec, tVec, rVec_origin=REFERENCE_RVEC, tVec_origin=REFERENCE_TVEC):
     """
     Transforms the pose of a marker from camera coordinates to world coordinates.
@@ -141,117 +125,6 @@ def transform_to_world(rVec, tVec, rVec_origin=REFERENCE_RVEC, tVec_origin=REFER
     rVec_world, _ = cv2.Rodrigues(R_world)
 
     return rVec_world, t_world
-
-def plot_marker_corners(corners):
-    """
-    Plots the 3D coordinates of marker corners. Each time this function is called,
-    the plot is updated with the new data.
-
-    :param corners: A list of sets of corners, where each set contains the 3D coordinates of the corners.
-                    The input should be in the form [[(x1, y1, z1), (x2, y2, z2), ...], ...] for multiple markers.
-    """
-    # Clear the current plot
-    ax.cla()
-
-    # Loop through each marker's set of corners
-    for set_of_corners in corners:
-        # Extract x, y, z coordinates for the current set of corners
-        x = [corner[0] for corner in set_of_corners]
-        y = [corner[1] for corner in set_of_corners]
-        z = [corner[2] for corner in set_of_corners]
-
-        # Plot the corners for this marker
-        ax.scatter(x, y, z, marker='o', s=50, label='Marker Corners')
-
-        # Optionally, you can connect the corners to form the marker's shape
-        # Closing the loop to form a quadrilateral
-        ax.plot(x + [x[0]], y + [y[0]], z + [z[0]], 'b-')
-
-    # Set axis labels
-    ax.set_xlabel('X (meters)')
-    ax.set_ylabel('Y (meters)')
-    ax.set_zlabel('Z (meters)')
-    ax.set_title('3D Plot of Marker Corners')
-
-    # Display legend
-    ax.legend()
-
-    # Draw the updated plot and flush events
-    plt.draw()
-    fig.canvas.flush_events()
-
-def plot_marker_rotation(avg_pose, rotated_poses):
-    global ax2
-    ax2.cla()  # Clear the current plot to reuse the same figure and axis
-
-    scale_factor = 0.05
-
-    if rotated_poses is not None:
-        for rotMat in rotated_poses:
-            # Define the origin and scaled axes as column vectors
-            origin = np.array([0, 0, 0])
-            x_axis = scale_factor * np.array([1, 0, 0]).reshape(3, 1)
-            y_axis = scale_factor * np.array([0, 1, 0]).reshape(3, 1)
-            z_axis = scale_factor * np.array([0, 0, 1]).reshape(3, 1)
-
-            # Apply the rotation to each scaled axis and flatten the result to get 1D arrays
-            x_rotated = (rotMat @ x_axis).flatten()
-            y_rotated = (rotMat @ y_axis).flatten()
-            z_rotated = (rotMat @ z_axis).flatten()
-
-            # Plot the rotated axes with short lines
-            ax2.quiver(*origin, *x_rotated, color='r', linestyle='dashed', label='Rotated X')
-            ax2.quiver(*origin, *y_rotated, color='g', linestyle='dashed', label='Rotated Y')
-            ax2.quiver(*origin, *z_rotated, color='b', linestyle='dashed', label='Rotated Z')
-
-    # saved_markers = fix_faulty_markers(faulty_markers, faulty_marker_ids)
-    # saved_markers = adjust
-
-    if avg_pose is not None:
-        # Define the origin and scaled axes as column vectors
-        origin = np.array([0, 0, 0])
-        x_axis = scale_factor * np.array([1, 0, 0]).reshape(3, 1)
-        y_axis = scale_factor * np.array([0, 1, 0]).reshape(3, 1)
-        z_axis = scale_factor * np.array([0, 0, 1]).reshape(3, 1)
-
-        # Apply the rotation to each scaled axis and flatten the result to get 1D arrays
-        x_rotated = (avg_pose @ x_axis).flatten()
-        y_rotated = (avg_pose @ y_axis).flatten()
-        z_rotated = (avg_pose @ z_axis).flatten()
-
-        # Plot the rotated axes with short lines
-        ax2.quiver(*origin, *x_rotated, color='r', linestyle='solid', label='Rotated X')
-        ax2.quiver(*origin, *y_rotated, color='g', linestyle='solid', label='Rotated Y')
-        ax2.quiver(*origin, *z_rotated, color='b', linestyle='solid', label='Rotated Z')
-
-    # Only add the legend once
-    ax2.legend()
-    plt.draw()
-    fig2.canvas.flush_events()
-
-def plot_singular_points(points):
-    """
-    Plots singular 3D points. Each time this function is called,
-    the plot is updated with the new data.
-
-    :param points: A list of 3D points in the form [(x1, y1, z1), (x2, y2, z2), ...]
-    """
-    # Clear the current plot
-    global ax
-
-    ax.cla()
-
-    # Extract x, y, z coordinates from the list of points
-    x = [point[0] for point in points]
-    y = [point[1] for point in points]
-    z = [point[2] for point in points]
-
-    # Plot the singular points
-    ax.scatter(x, y, z, marker='o', s=50, c='r', label='Singular Points')
-
-    # Draw the updated plot and flush events
-    plt.draw()
-    fig.canvas.flush_events()
 
 def compute_velocity(rvec_prev, tvec_prev, rvec_curr, tvec_curr, delta_t):
     # Compute translational velocity
@@ -303,10 +176,215 @@ def ensure_marker_faces_camera(rotation):
     # If dot >= 0, we do nothing: it is already facing the camera.
     return rotation
 
+def get_transform_to_reference(rotation, translation, ref_rotation, ref_translation):
+    """
+    Computes the fixed rotation and translation needed to align
+    `rotation` and `translation` with the `ref_rotation` and `ref_translation`.
+    
+    Args:
+        rotation (numpy array): Original rotation vector (Rodrigues format, 3x1).
+        translation (numpy array): Original translation vector (3x1).
+        ref_rotation (numpy array): Reference rotation vector (Rodrigues format, 3x1).
+        ref_translation (numpy array): Reference translation vector (3x1).
+
+    Returns:
+        fixed_rotation (numpy array): Rotation vector needed to align with the reference.
+        fixed_translation (numpy array): Translation vector needed to align with the reference.
+    """
+    # Convert rotation vectors to rotation matrices
+    R_original, _ = cv2.Rodrigues(rotation)
+    R_reference, _ = cv2.Rodrigues(ref_rotation)
+
+    # Compute the required rotation to align R_original to R_reference
+    R_fix = R_reference @ R_original.T  # Rotation needed to align the two
+    
+    # Convert back to a rotation vector
+    fixed_rotation, _ = cv2.Rodrigues(R_fix)
+
+    # Compute the required translation to align translation to ref_translation
+    fixed_translation = ref_translation - (R_fix @ translation)
+
+    return fixed_rotation, fixed_translation
+
+def dodecahedron_center_to_iv(rotation, translation):
+    rotation, _ = cv2.Rodrigues(rotation)
+
+    # Extract the marker's local Z-axis (third column of R_marker)
+    local_z_axis = rotation[:, 2]  # The third column is the Z-axis
+
+    # Convert the rotation into radians
+    angle_rad = np.deg2rad(72*2)
+
+    # Create a rotation matrix about the marker's Z-axis
+    R_local_z, _ = cv2.Rodrigues(local_z_axis * angle_rad)
+
+    # Apply the rotation
+    rotation = R_local_z @ rotation  # Rotate marker in its local frame
+
+    # Extract the marker's local Z-axis (third column of R_marker)
+    local_z_axis = rotation[:, 2]  # The third column is the Z-axis
+
+    # Convert the rotation into radians
+    angle_rad = np.deg2rad(-9)
+
+    # Create a rotation matrix about the marker's Z-axis
+    R_local_z, _ = cv2.Rodrigues(local_z_axis * angle_rad)
+
+    # Apply the rotation
+    rotation = R_local_z @ rotation  # Rotate marker in its local frame
+
+    local_y_axis = rotation[:, 1]  # The third column is the Z-axis
+
+    # Convert the rotation into radians
+    angle_rad = np.deg2rad(9)
+
+        # Create a rotation matrix about the marker's Z-axis
+    R_local_y, _ = cv2.Rodrigues(local_y_axis * angle_rad)
+
+    # Apply the rotation
+    rotation = R_local_y @ rotation  # Rotate marker in its local frame
+
+    translation = translation + (inradius_mm + length_of_rod + 2) * rotation[:, 0].reshape(3, 1)
+    translation = translation + (2) * rotation[:, 1].reshape(3, 1)
+    
+    # Convert back to rotation vector
+    rotation, _ = cv2.Rodrigues(rotation)
+
+    return rotation, translation
+
+def apply_transform(rotation, translation, fixed_rotation, fixed_translation):
+    """
+    Applies a given rotation and translation transformation to the original rotation and translation.
+
+    Args:
+        rotation (numpy array): Original rotation vector (Rodrigues format, 3x1).
+        translation (numpy array): Original translation vector (3x1).
+        fixed_rotation (numpy array): Rotation vector that aligns to reference (Rodrigues format, 3x1).
+        fixed_translation (numpy array): Translation vector that aligns to reference (3x1).
+
+    Returns:
+        new_rotation (numpy array): Transformed rotation vector (Rodrigues format, 3x1).
+        new_translation (numpy array): Transformed translation vector (3x1).
+    """
+    # Convert rotation vectors to rotation matrices
+    R_original, _ = cv2.Rodrigues(rotation)
+    R_fix, _ = cv2.Rodrigues(fixed_rotation)
+
+    # Apply rotation correction
+    R_new = R_fix @ R_original
+
+    # Convert back to rotation vector
+    new_rotation, _ = cv2.Rodrigues(R_new)
+
+    # Apply translation correction
+    new_translation = (R_fix @ translation) + fixed_translation
+
+    return new_rotation, new_translation
+
+def dodecahedron_center_to_iv_dynamic(rotation, translation, angle1, angle2):
+    """
+    Modified `dodecahedron_center_to_iv` function that accepts two dynamic angles.
+    """
+    rotation, _ = cv2.Rodrigues(rotation)
+
+    # Extract the marker's local Z-axis (third column of R_marker)
+    local_z_axis = rotation[:, 2]
+
+    # Convert the first rotation angle to radians
+    angle_rad1 = np.deg2rad(72 * 2)
+
+    # Create a rotation matrix about the marker's Z-axis
+    R_local_z, _ = cv2.Rodrigues(local_z_axis * angle_rad1)
+
+    # Apply the rotation
+    rotation = R_local_z @ rotation  # Rotate marker in its local frame
+
+    local_y_axis = rotation[:, 1]
+
+    # Convert the second rotation angle to radians
+    angle_rad2 = np.deg2rad(angle1)
+
+    # Create a rotation matrix about the marker's Y-axis
+    R_local_y, _ = cv2.Rodrigues(local_y_axis * angle_rad2)
+
+    # Apply the rotation
+    rotation = R_local_y @ rotation  # Rotate marker in its local frame
+
+    # Extract the marker's local Z-axis again
+    local_z_axis = rotation[:, 2]
+
+    # Convert the third rotation angle to radians
+    angle_rad3 = np.deg2rad(angle2)
+
+    # Create a rotation matrix about the marker's Z-axis
+    R_local_z, _ = cv2.Rodrigues(local_z_axis * angle_rad3)
+
+    # Apply the rotation
+    rotation = R_local_z @ rotation  # Rotate marker in its local frame
+
+    # Compute translation adjustment
+    translation = translation + (inradius_mm + length_of_rod + 8.7) * rotation[:, 0].reshape(3, 1)
+
+    # Convert back to rotation vector
+    rotation, _ = cv2.Rodrigues(rotation)
+
+    return rotation, translation
+
+def sweep_dodecahedron_transform():
+    """
+    Performs a nested sweep over two rotation angles, varying them from 2 to 9 in increments of 0.1,
+    and records the resulting rotation and translation vectors.
+    
+    Saves the results into an Excel file.
+    """
+    # Define sweep ranges
+    sweep_values = np.arange(-8, 8, 0.1)  # Sweep values from 2 to 9 with step 0.1
+
+    # Prepare DataFrame for results
+    results = []
+
+    # Perform nested loop over both angle values
+    for angle1, angle2 in itertools.product(sweep_values, repeat=2):
+        
+        # Modify `dodecahedron_center_to_iv` to take dynamic angles
+        rotation_result, translation_result = dodecahedron_center_to_iv_dynamic(
+            np.array([[ 0.33596107], [ 0.36197656], [-0.74540344]]),
+            np.array([[ 18.12945877], [-46.10937428], [300.24007368]]),
+            angle1,
+            angle2
+        )
+
+        rotation_result, translation_result = transform_to_world(rotation_result,
+                                                                 translation_result)
+
+        # Store results
+        results.append({
+            "Angle1 (deg)": angle1,
+            "Angle2 (deg)": angle2,
+            "Rotation X": rotation_result[0][0],
+            "Rotation Y": rotation_result[1][0],
+            "Rotation Z": rotation_result[2][0],
+            "Translation X": translation_result[0][0],
+            "Translation Y": translation_result[1][0],
+            "Translation Z": translation_result[2][0],
+        })
+
+    # Convert to DataFrame
+    df = pd.DataFrame(results)
+
+    # Save to Excel
+    excel_filename = "sweep_results.xlsx"
+    df.to_excel(excel_filename, index=False)
+    
+    print(f"✅ Sweep complete! Results saved to {excel_filename}")
+
+
 def ProcessFrame_2(frame, file):
     global board
     global consequtive_failures
     global z_data
+    global rotation_fixed
+    global translation_fixed
     grayFrame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     markerCorners, markerIds, rejects = aruco.detectMarkers(
@@ -317,46 +395,67 @@ def ProcessFrame_2(frame, file):
 
     if markerIds is not None:
 
-        # rVec, tVec, _ = aruco.estimatePoseSingleMarkers(
-        #         markerCorners, MARKER_SIZE, cam_mat, dist_coef
-        #     )
-        # for i, _ in enumerate(markerIds):
-        #         cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 4, 4)
-        # print(f"{rVec=}, {tVec=}")
+        rVec, tVec, _ = aruco.estimatePoseSingleMarkers(
+                markerCorners, MARKER_SIZE, cam_mat, dist_coef
+            )
+        for i, id in enumerate(markerIds):
+                # cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 4, 4)
+                # print(f"{id=}: {rVec[i]=}, {tVec[i]=}")
+                break
 
         success, rotation, translation = aruco.estimatePoseBoard(markerCorners, markerIds, board, cam_mat, dist_coef, r_vectors, t_vectors)
         if success:
             frame = aruco.drawDetectedMarkers(frame, markerCorners, markerIds)
             
-            cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rotation, translation, 4, 4)
-            
-            
-            # Extract translation and rotation
-            x_val = translation[0][0]
-            y_val = translation[1][0]
-            z_val = translation[2][0]
+            if translation[2][0] < 0:
+                translation[0][0] *= -1
+                translation[1][0] *= -1
+                translation[2][0] *= -1
 
-            # rotation = ensure_marker_faces_camera(rotation)
+            # reference_rotation = np.array([REFERENCE_RVEC[0],
+            #                                REFERENCE_RVEC[1],
+            #                                -REFERENCE_RVEC[2]],
+            #                                dtype=np.float32)  # Reference rotation (Rodrigues)
+            # reference_translation = np.array([REFERENCE_TVEC[0],
+            #                                   REFERENCE_TVEC[1],
+            #                                   REFERENCE_TVEC[2]],
+            #                                   dtype=np.float32)  # Reference translation
 
-            pitch_val = rotation[0][0]
-            roll_val  = rotation[1][0]
-            yaw_val   = rotation[2][0]
+            # fixed_rotation, fixed_translation = get_transform_to_reference(
+            #     np.array([pitch_val, roll_val, yaw_val]),
+            #     np.array([x_val, y_val, z_val]),
+            #     reference_rotation,
+            #     reference_translation
+            # )
 
-            if z_val < 0:
-                x_val *= -1
-                y_val *= -1
-                z_val *= -1
+            # rotation, translation = apply_transform(
+            #     np.array([pitch_val, roll_val, yaw_val]),
+            #     np.array([x_val, y_val, z_val]),
+            #     rotation_fixed,
+            #     translation_fixed
+            # )
 
-            if len(z_data) != 0:
-                if z_val < z_data[-1] - inradius_mm/2:
-                    consequtive_failures += 1
-                    if consequtive_failures == 3:
-                        consequtive_failures = 0
-                    else:
-                        z_val = z_data[-1]
+            rotation, translation = dodecahedron_center_to_iv(
+                rotation, translation)
+
+            cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rotation, translation, 7, 4)
+
+            # if len(z_data) != 0:
+            #     if z_val < z_data[-1] - inradius_mm/2:
+            #         consequtive_failures += 1
+            #         if consequtive_failures == 3:
+            #             consequtive_failures = 0
+            #         else:
+            #             z_val = z_data[-1]
             
             # print( f"{x_val} {y_val} {z_val} {pitch_val} {roll_val} {yaw_val}")
-            rotation, translation = transform_to_world(np.array([[pitch_val, roll_val, yaw_val]]), np.array([[x_val, y_val, z_val]]))
+            rotation, translation = transform_to_world(rotation,
+                                                       translation)
+            
+            
+            
+
+            print(f"{rotation=}, {translation=}")
 
             # Extract translation and rotation
             x_val = translation[0][0]
@@ -368,10 +467,12 @@ def ProcessFrame_2(frame, file):
             pitch_val = rotation[0][0]
             roll_val  = rotation[1][0]
             yaw_val   = rotation[2][0]
-            print( f"{x_val} {y_val} {z_val} {pitch_val} {roll_val} {yaw_val}")
+            # print( f"{x_val} {y_val} {z_val} {pitch_val} {roll_val} {yaw_val}")
 
             # Write to text file
             result_string = f"{x_val} {y_val} {z_val} {pitch_val} {roll_val} {yaw_val}"
+
+            file.write(result_string + "\n")
             
             # Update the real-time plot
             # update_realtime_plot(pitch_val, roll_val, yaw_val)
@@ -453,6 +554,7 @@ def dodecahedron_aruco_points():
     return all_aruco_points
 
 def RunVideoCaptureDetection(queue, vidCapturePath=None):
+    global first_data
     print("Trying to open video capture device")
     
     # init_realtime_plot()
@@ -477,8 +579,13 @@ def RunVideoCaptureDetection(queue, vidCapturePath=None):
         while rval:
             post_process_frame, data = ProcessFrame_2(frame, file)
             if data[0] != None:
-                queue.put(data)
+                if first_data:
+                    # Discard first data because it is faulty
+                    first_data = False
+                else:
+                    queue.put(data)
                 # print(f"Putting: {data} into queue\n")
+
 
             rval, frame = vc.read()
             counter += 1
@@ -621,4 +728,6 @@ def startTracking(queue):
 
 queue = Queue()
 startTracking(queue)
+
+# sweep_dodecahedron_transform()
 

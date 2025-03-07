@@ -2,6 +2,7 @@ import os
 import time
 from scipy.signal import butter, lfilter
 import matplotlib.pyplot as plt
+import numpy as np
 
 DEFAULT_FILTERED_DATA_FILE_PATH = "Capstone/Filter/filtered_data.txt"
 
@@ -95,13 +96,25 @@ def process_file(file_path, output_file, cutoff_freq=5, sample_time=0.02, monito
     except KeyboardInterrupt:
         print("\nProcessing interrupted by user.")
 
+def remove_first_n_lines(file_path, n=6):
+    """
+    Remove the first `n` lines from a file.
+    """
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+    
+    if len(lines) > n:
+        with open(file_path, 'w') as file:
+            file.writelines(lines[n:])
+
 buffers = {key: [0, 0, 0] for key in ["x", "y", "z", "roll", "pitch", "yaw"]}
 outputs = {key: [0, 0] for key in ["x", "y", "z", "roll", "pitch", "yaw"]}
 
 raw_data = {key: [] for key in ["x", "y", "z", "roll", "pitch", "yaw"]}  # Store raw data
 filtered_data = {key: [] for key in ["x", "y", "z", "roll", "pitch", "yaw"]}  # Store filtered data
 
-def process_file_2(raw_data_queue, 
+def process_file_2(raw_data_queue,
+                   filtered_data_queue,
                    output_file=DEFAULT_FILTERED_DATA_FILE_PATH,
                    cutoff_freq=5,
                    sample_time=0.02,
@@ -120,7 +133,7 @@ def process_file_2(raw_data_queue,
                 if raw_data_entry is None:               # <-- sentinel
                     break
                 # Otherwise, process item
-                print(f"Consumed: {raw_data_entry}")
+                # print(f"Consumed: {raw_data_entry}")
 
                                     # Parse data
                 x0, y0, z0, roll0, pitch0, yaw0 = raw_data_entry
@@ -150,11 +163,16 @@ def process_file_2(raw_data_queue,
                     ]
                 output.write(" ".join(map(str, filtered_row)) + "\n")
                 output.flush()  # Ensure real-time writing to the file
+                filtered_data_queue.put(filtered_row)
 
-        plot_data(raw_data, filtered_data)
+        # plot_data(raw_data, filtered_data)
+        # plot_filtered_and_translated_data("Capstone/Filter/filtered_data.txt", "left_vein_final.txt", "right_vein_final.txt")
+        remove_first_n_lines(output_file, n=10)
 
     except KeyboardInterrupt:
         print("\nProcessing interrupted by user.")
+
+    filtered_data_queue.put(None)
 
 
 def plot_data(raw_data, filtered_data):
@@ -179,27 +197,64 @@ def plot_data(raw_data, filtered_data):
 
     plt.show()
 
-def main():
-    print("Real-Time Data Filtering Program")
-    base_directory = input("Enter the directory containing the data file: ").strip()
-    input_file_name = input("Enter the name of the input data file: ").strip()
-    output_file_name = input("Enter the name of the output file: ").strip()
-    file_path = os.path.join(base_directory, input_file_name)
-    output_path = os.path.join(base_directory, output_file_name)
+def plot_filtered_and_translated_data(filtered_file, left_vein_file, right_vein_file):
+    """
+    Plot the filtered x, y, z trajectory data along with the translated left and right veins.
+    """
+    # Load filtered data
+    filtered_data = np.loadtxt(filtered_file)
+    
+    # Load translated vein data
+    left_vein_translated = np.loadtxt(left_vein_file)
+    right_vein_translated = np.loadtxt(right_vein_file)
+    
+    fig = plt.figure(figsize=(10, 7))
+    ax = fig.add_subplot(111, projection='3d')
+    
+    # Plot filtered data in red
+    ax.plot(filtered_data[:, 0], filtered_data[:, 1], filtered_data[:, 2], 'r-', label="Filtered Trajectory")
+    
+    # Plot translated veins in green
+    ax.plot(left_vein_translated[:, 0], left_vein_translated[:, 1], left_vein_translated[:, 2], 'g-', label="Left Vein Translated")
+    ax.plot(right_vein_translated[:, 0], right_vein_translated[:, 1], right_vein_translated[:, 2], 'g-', label="Right Vein Translated")
+    
+    # Labels and title
+    ax.set_xlabel("Tx")
+    ax.set_ylabel("Ty")
+    ax.set_zlabel("Tz")
+    ax.set_title("Filtered Data and Translated Veins")
+    ax.legend()
+    
+    plt.show()
 
-    if not os.path.exists(file_path):
-        print(f"Error: The file '{file_path}' does not exist.")
-        return
+# Example usage:
+# 
 
-    # Ask user if they want to monitor for new data
-    mode = input("Do you want to monitor for new data? (yes/no): ").strip().lower()
-    monitor_mode = mode == 'yes'
+# def main():
+#     print("Real-Time Data Filtering Program")
+#     base_directory = input("Enter the directory containing the data file: ").strip()
+#     input_file_name = input("Enter the name of the input data file: ").strip()
+#     output_file_name = input("Enter the name of the output file: ").strip()
+#     file_path = os.path.join(base_directory, input_file_name)
+#     output_path = os.path.join(base_directory, output_file_name)
 
-    # Start filtering
-    try:
-        process_file(file_path, output_path, monitor_mode=monitor_mode)
-    except Exception as e:
-        print(f"An error occurred: {e}")
+#     if not os.path.exists(file_path):
+#         print(f"Error: The file '{file_path}' does not exist.")
+#         return
+
+#     # Ask user if they want to monitor for new data
+#     mode = input("Do you want to monitor for new data? (yes/no): ").strip().lower()
+#     monitor_mode = mode == 'yes'
+
+#     # Start filtering
+#     try:
+#         process_file(file_path, output_path, monitor_mode=monitor_mode)
+#     except Exception as e:
+#         print(f"An error occurred: {e}")
+
+
 
 if __name__ == "__main__":
-    main()
+    plot_filtered_and_translated_data("Capstone/Filter/filtered_data.txt",
+                                      "Capstone/Vein/left_vein_final.txt",
+                                      "Capstone/Vein/right_vein_final.txt")
