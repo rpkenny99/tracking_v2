@@ -113,7 +113,8 @@ outputs = {key: [0, 0] for key in ["x", "y", "z", "roll", "pitch", "yaw"]}
 raw_data = {key: [] for key in ["x", "y", "z", "roll", "pitch", "yaw"]}  # Store raw data
 filtered_data = {key: [] for key in ["x", "y", "z", "roll", "pitch", "yaw"]}  # Store filtered data
 
-def process_file_2(raw_data_queue, 
+def process_file_2(raw_data_queue,
+                   filtered_data_queue,
                    output_file=DEFAULT_FILTERED_DATA_FILE_PATH,
                    cutoff_freq=5,
                    sample_time=0.02,
@@ -132,7 +133,7 @@ def process_file_2(raw_data_queue,
                 if raw_data_entry is None:               # <-- sentinel
                     break
                 # Otherwise, process item
-                print(f"Consumed: {raw_data_entry}")
+                # print(f"Consumed: {raw_data_entry}")
 
                                     # Parse data
                 x0, y0, z0, roll0, pitch0, yaw0 = raw_data_entry
@@ -162,6 +163,7 @@ def process_file_2(raw_data_queue,
                     ]
                 output.write(" ".join(map(str, filtered_row)) + "\n")
                 output.flush()  # Ensure real-time writing to the file
+                filtered_data_queue.put(filtered_row)
 
         # plot_data(raw_data, filtered_data)
         # plot_filtered_and_translated_data("Capstone/Filter/filtered_data.txt", "left_vein_final.txt", "right_vein_final.txt")
@@ -169,6 +171,8 @@ def process_file_2(raw_data_queue,
 
     except KeyboardInterrupt:
         print("\nProcessing interrupted by user.")
+
+    filtered_data_queue.put(None)
 
 
 def plot_data(raw_data, filtered_data):
