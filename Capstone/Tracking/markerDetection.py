@@ -10,6 +10,10 @@ from queue import Queue
 
 import pandas as pd
 import itertools
+from collections import deque
+
+# Initialize global queue for velocity tracking
+velocity_history = deque(maxlen=7)  # Stores last 7 translational velocities
 
 markerDict = aruco.getPredefinedDictionary(aruco.DICT_6X6_100)
 paramMarkers = aruco.DetectorParameters()
@@ -21,9 +25,13 @@ dist_coef = calib_data["distCoef"]
 r_vectors = calib_data["rVector"]
 t_vectors = calib_data["tVector"]
 
+rotation_prev = None
+translation_prev = None
+
 consequtive_failures = 0
 
-dodecahedron_edge_length_mm = 12.71
+# dodecahedron_edge_length_mm = 12.71
+dodecahedron_edge_length_mm = 13.46
 inradius_mm = math.sqrt((25 + 11*math.sqrt(5))/40) * dodecahedron_edge_length_mm
 
 length_of_rod = 52.72
@@ -31,8 +39,8 @@ length_of_rod = 52.72
 first_data = True
 
 MARKER_SIZE = 11.77
-REFERENCE_RVEC = np.array([1.37857867,  1.45821971, -1.0593357])
-REFERENCE_TVEC = np.array([6.0781937 ,  19.14238482, 332.69994166])
+REFERENCE_RVEC = np.array([-0.28372252, -2.57533886,  2.01505923])
+REFERENCE_TVEC = np.array([2.96323532,  55.47195016, 274.23808405])
 FPS = 30
 TIME_PER_FRAME = 1/FPS
 
@@ -123,15 +131,41 @@ def transform_to_world(rVec, tVec, rVec_origin=REFERENCE_RVEC, tVec_origin=REFER
 
     return rVec_world, t_world
 
-def compute_velocity(rvec_prev, tvec_prev, rvec_curr, tvec_curr, delta_t):
+
+
+def compute_velocity(rvec_curr, tvec_curr, delta_t):
+    global rotation_prev
+    global translation_prev
+    global velocity_history
+
+    if rotation_prev is None or translation_prev is None:
+        return (None, None, None), (None, None, None), True
+
     # Compute translational velocity
-    v_x = (tvec_curr[0] - tvec_prev[0]) / delta_t
-    v_y = (tvec_curr[1] - tvec_prev[1]) / delta_t
-    v_z = (tvec_curr[2] - tvec_prev[2]) / delta_t
+    v_x = (tvec_curr[0] - translation_prev[0]) / delta_t
+    v_y = (tvec_curr[1] - translation_prev[1]) / delta_t
+    v_z = (tvec_curr[2] - translation_prev[2]) / delta_t
+
+    current_velocity = np.array([v_x, v_y, v_z])
+
+    # Store velocity in history
+    velocity_history.append(current_velocity)
+
+    # Compute moving average and standard deviation if enough data is available
+    if len(velocity_history) >= 7:
+        velocity_array = np.array(velocity_history)
+        moving_avg = np.mean(velocity_array, axis=0)
+        std_dev = np.std(velocity_array, axis=0)
+
+        # Flag data as faulty if current velocity exceeds 1.8 * standard deviation
+        fault_flag = np.any(np.abs(current_velocity - moving_avg) > 1.8 * std_dev)
+        print(f"{fault_flag=}")
+    else:
+        fault_flag = False  # Not enough data to determine anomaly
 
     # Convert rvec to rotation matrices
     R_curr, _ = cv2.Rodrigues(rvec_curr)
-    R_prev, _ = cv2.Rodrigues(rvec_prev)
+    R_prev, _ = cv2.Rodrigues(rotation_prev)
 
     # Compute relative rotation matrix
     R_relative = np.dot(R_curr, R_prev.T)
@@ -144,7 +178,8 @@ def compute_velocity(rvec_prev, tvec_prev, rvec_curr, tvec_curr, delta_t):
     omega_y = rvec_relative[1][0] / delta_t
     omega_z = rvec_relative[2][0] / delta_t
 
-    return (v_x, v_y, v_z), (omega_x, omega_y, omega_z)
+    return (v_x, v_y, v_z), (omega_x, omega_y, omega_z), fault_flag
+
 
 def ensure_marker_faces_camera(rotation):
     """
@@ -192,7 +227,7 @@ def dodecahedron_center_to_iv(rotation, translation):
     local_z_axis = rotation[:, 2]  # The third column is the Z-axis
 
     # Convert the rotation into radians
-    angle_rad = np.deg2rad(-9)
+    angle_rad = np.deg2rad(-8)
 
     # Create a rotation matrix about the marker's Z-axis
     R_local_z, _ = cv2.Rodrigues(local_z_axis * angle_rad)
@@ -203,7 +238,7 @@ def dodecahedron_center_to_iv(rotation, translation):
     local_y_axis = rotation[:, 1]  # The third column is the Z-axis
 
     # Convert the rotation into radians
-    angle_rad = np.deg2rad(9)
+    angle_rad = np.deg2rad(7.2)
 
         # Create a rotation matrix about the marker's Z-axis
     R_local_y, _ = cv2.Rodrigues(local_y_axis * angle_rad)
@@ -211,7 +246,7 @@ def dodecahedron_center_to_iv(rotation, translation):
     # Apply the rotation
     rotation = R_local_y @ rotation  # Rotate marker in its local frame
 
-    translation = translation + (inradius_mm + length_of_rod + 2) * rotation[:, 0].reshape(3, 1)
+    translation = translation + (inradius_mm + length_of_rod) * rotation[:, 0].reshape(3, 1)
     translation = translation + (2) * rotation[:, 1].reshape(3, 1)
     
     # Convert back to rotation vector
@@ -226,43 +261,43 @@ def dodecahedron_center_to_iv_dynamic(rotation, translation, angle1, angle2):
     rotation, _ = cv2.Rodrigues(rotation)
 
     # Extract the marker's local Z-axis (third column of R_marker)
-    local_z_axis = rotation[:, 2]
+    local_z_axis = rotation[:, 2]  # The third column is the Z-axis
 
-    # Convert the first rotation angle to radians
-    angle_rad1 = np.deg2rad(72 * 2)
+    # Convert the rotation into radians
+    angle_rad = np.deg2rad(72*2)
 
     # Create a rotation matrix about the marker's Z-axis
-    R_local_z, _ = cv2.Rodrigues(local_z_axis * angle_rad1)
+    R_local_z, _ = cv2.Rodrigues(local_z_axis * angle_rad)
 
     # Apply the rotation
     rotation = R_local_z @ rotation  # Rotate marker in its local frame
 
-    local_y_axis = rotation[:, 1]
+    # Extract the marker's local Z-axis (third column of R_marker)
+    local_z_axis = rotation[:, 2]  # The third column is the Z-axis
 
-    # Convert the second rotation angle to radians
-    angle_rad2 = np.deg2rad(angle1)
+    # Convert the rotation into radians
+    angle_rad = np.deg2rad(angle1)
 
-    # Create a rotation matrix about the marker's Y-axis
-    R_local_y, _ = cv2.Rodrigues(local_y_axis * angle_rad2)
+    # Create a rotation matrix about the marker's Z-axis
+    R_local_z, _ = cv2.Rodrigues(local_z_axis * angle_rad)
+
+    # Apply the rotation
+    rotation = R_local_z @ rotation  # Rotate marker in its local frame
+
+    local_y_axis = rotation[:, 1]  # The third column is the Z-axis
+
+    # Convert the rotation into radians
+    angle_rad = np.deg2rad(angle2)
+
+        # Create a rotation matrix about the marker's Z-axis
+    R_local_y, _ = cv2.Rodrigues(local_y_axis * angle_rad)
 
     # Apply the rotation
     rotation = R_local_y @ rotation  # Rotate marker in its local frame
 
-    # Extract the marker's local Z-axis again
-    local_z_axis = rotation[:, 2]
-
-    # Convert the third rotation angle to radians
-    angle_rad3 = np.deg2rad(angle2)
-
-    # Create a rotation matrix about the marker's Z-axis
-    R_local_z, _ = cv2.Rodrigues(local_z_axis * angle_rad3)
-
-    # Apply the rotation
-    rotation = R_local_z @ rotation  # Rotate marker in its local frame
-
-    # Compute translation adjustment
-    translation = translation + (inradius_mm + length_of_rod + 8.7) * rotation[:, 0].reshape(3, 1)
-
+    translation = translation + (inradius_mm + length_of_rod) * rotation[:, 0].reshape(3, 1)
+    translation = translation + (2) * rotation[:, 1].reshape(3, 1)
+    
     # Convert back to rotation vector
     rotation, _ = cv2.Rodrigues(rotation)
 
@@ -276,7 +311,7 @@ def sweep_dodecahedron_transform():
     Saves the results into an Excel file.
     """
     # Define sweep ranges
-    sweep_values = np.arange(-8, 8, 0.1)  # Sweep values from 2 to 9 with step 0.1
+    sweep_values = np.arange(-11, 11, 0.1)  # Sweep values from 2 to 9 with step 0.1
 
     # Prepare DataFrame for results
     results = []
@@ -286,14 +321,18 @@ def sweep_dodecahedron_transform():
         
         # Modify `dodecahedron_center_to_iv` to take dynamic angles
         rotation_result, translation_result = dodecahedron_center_to_iv_dynamic(
-            np.array([[ 0.33596107], [ 0.36197656], [-0.74540344]]),
-            np.array([[ 18.12945877], [-46.10937428], [300.24007368]]),
+            np.array([  [-1.5833294 ],
+                        [ 1.34539269],
+                        [-2.26428008]]),
+            np.array([  [-1.43052298],
+                        [-9.30266352],
+                        [67.54010506]]),
             angle1,
             angle2
         )
 
-        rotation_result, translation_result = transform_to_world(rotation_result,
-                                                                 translation_result)
+        # rotation_result, translation_result = transform_to_world(rotation_result,
+        #                                                          translation_result)
 
         # Store results
         results.append({
@@ -321,8 +360,10 @@ def ProcessFrame_2(frame, file):
     global board
     global consequtive_failures
     global z_data
-    global rotation_fixed
-    global translation_fixed
+    global paramMarkers
+    global rotation_prev
+    global translation_prev
+    
     grayFrame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     markerCorners, markerIds, rejects = aruco.detectMarkers(
@@ -337,9 +378,11 @@ def ProcessFrame_2(frame, file):
                 markerCorners, MARKER_SIZE, cam_mat, dist_coef
             )
         for i, id in enumerate(markerIds):
-                cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 4, 4)
-                rotation, translation = transform_to_world(rVec[i], tVec[i])
-                print(f"{id=}: {rotation=}, {translation=}")
+                # cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 4, 4)
+                # print(f"{id=}: {rVec[i]=}, {tVec[i]=}")
+                # rotation, translation = transform_to_world(rVec[i], tVec[i])
+                # print(f"{id=}: {rotation=}, {translation=}")
+                break
 
         success, rotation, translation = aruco.estimatePoseBoard(markerCorners, markerIds, board, cam_mat, dist_coef, r_vectors, t_vectors)
         if success:
@@ -350,16 +393,28 @@ def ProcessFrame_2(frame, file):
                 translation[1][0] *= -1
                 translation[2][0] *= -1
 
-            # rotation, translation = dodecahedron_center_to_iv(
-            #     rotation, translation)
+            rotation, translation = dodecahedron_center_to_iv(
+                rotation, translation)
 
             cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rotation, translation, 7, 4)
 
-            print(f"{rotation=}, {translation=}")
+            
 
             rotation, translation = transform_to_world(rotation,
                                                        translation)
+
+
+            _, _, fault = compute_velocity(rotation, translation, TIME_PER_FRAME)
+
+            if fault == True and rotation_prev is not None and translation_prev is not None:
+                x_val, y_val, z_val, pitch_val, roll_val, yaw_val = None, None, None, None, None, None
+                return frame, [x_val, y_val, z_val, pitch_val, roll_val, yaw_val]
             
+
+            rotation_prev = rotation
+            translation_prev = translation
+
+            print(f"{rotation=}, {translation=}")
             
 
             # Extract translation and rotation
@@ -453,7 +508,7 @@ def dodecahedron_aruco_points():
     aruco_corners = rotation_around_z(90) * translation(0, 0, radius) * translation(0, (pentagon_edge_to_pentagon_center - (marker_edge_to_marker_center + 2.27)), 0) * origin_points
     all_aruco_points.append(hom2cart(aruco_corners).T)
     # # bottom marker19
-    aruco_corners = rotation_around_z(-90) * translation(0, 0, -radius) * translation(0, (pentagon_edge_to_pentagon_center - (marker_edge_to_marker_center + 2.73)), 0) * rotation_around_y(180) * origin_points
+    aruco_corners = rotation_around_z(-72) * translation(0, 0, -radius) * translation(0, (pentagon_edge_to_pentagon_center - (marker_edge_to_marker_center + 2.73)), 0) * rotation_around_y(180) * origin_points
     all_aruco_points.append(hom2cart(aruco_corners).T)
   
     return all_aruco_points
@@ -504,7 +559,7 @@ def RunVideoCaptureDetection(queue, vidCapturePath=None):
     vc.release()
 
 def RunTestImageDetection():
-    frame = cv2.imread('geometric_rotation_images/Marker19_3.jpg')
+    frame = cv2.imread('Capstone/Tracking/marker_19_faulty.jpg')
     assert(frame is not None)
     cv2.namedWindow('preview', cv2.WINDOW_NORMAL)
 
@@ -542,7 +597,7 @@ def setupArucoBoard():
     return aruco.Board(points, markerDict, ids)
 
 def plot_aruco_board():
-    ids = np.array([[5], [1], [2], [3], [4], [14], [6], [7], [8], [9], [0], [19]])
+    ids = np.array([[5], [1], [2], [3], [4], [9], [14], [6], [7], [8], [0], [19]])
     aruco_points = dodecahedron_aruco_points()
 
     # Plot in 3D
@@ -627,7 +682,9 @@ def startTracking(queue):
     global board
         
     board = setupArucoBoard()
+    # plot_aruco_board()
     RunVideoCaptureDetection(queue)
+    # RunTestImageDetection()
     
     queue.put(None)
 
