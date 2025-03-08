@@ -3,6 +3,9 @@ import time
 from scipy.signal import butter, lfilter
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+import keyboard
+from itertools import count
 
 DEFAULT_FILTERED_DATA_FILE_PATH = "Capstone/Filter/filtered_data.txt"
 
@@ -173,6 +176,85 @@ def process_file_2(raw_data_queue,
         print("\nProcessing interrupted by user.")
 
     filtered_data_queue.put(None)
+
+
+def get_unique_filename(base_name="filtered_data", ext=".txt"):
+    for i in count(1):
+        filename = f"{base_name}_{i}{ext}"
+        if not os.path.exists(filename):
+            return filename
+
+def process_file_3(raw_data_queue,
+                   filtered_data_queue,
+                   output_file=DEFAULT_FILTERED_DATA_FILE_PATH,
+                   cutoff_freq=5,
+                   sample_time=0.02,
+                   monitor_mode=True,
+                   wait_time=5):
+    global outputs
+    global buffers
+    global raw_data
+    global filtered_data
+    
+    collecting = False  # Flag to track data collection status
+    collected_data = []  # Store collected filtered data
+
+    try:
+        with open(output_file, 'w') as output:
+            while True:
+                if keyboard.is_pressed('space'):
+                    collecting = True
+                    print("Started collecting filtered data...")
+
+                if keyboard.is_pressed('s') and collecting:
+                    filename = get_unique_filename()
+                    with open(filename, 'w') as save_file:
+                        for row in collected_data:
+                            save_file.write(" ".join(map(str, row)) + "\n")
+                    print(f"Filtered data saved to {filename}")
+                    collecting = False
+                    collected_data.clear()
+                
+                raw_data_entry = raw_data_queue.get()
+                if raw_data_entry is None:
+                    break
+                
+                x0, y0, z0, roll0, pitch0, yaw0 = raw_data_entry
+                
+                for key, value in zip(
+                        ["x", "y", "z", "roll", "pitch", "yaw"],
+                        [x0, y0, z0, roll0, pitch0, yaw0],
+                ):
+                    raw_data[key].append(value)
+                    buffers[key] = [value] + buffers[key][:2]
+                    outputs[key] = [
+                        scipy_low(
+                            cutoff_freq, sample_time,
+                            buffers[key][0], buffers[key][1], buffers[key][2],
+                            outputs[key][0], outputs[key][1],
+                        )
+                    ] + outputs[key][:1]
+
+                    filtered_data[key].append(outputs[key][0])
+
+                filtered_row = [
+                    outputs["x"][0], outputs["y"][0], outputs["z"][0],
+                    outputs["roll"][0], outputs["pitch"][0], outputs["yaw"][0],
+                ]
+                output.write(" ".join(map(str, filtered_row)) + "\n")
+                output.flush()
+                filtered_data_queue.put(filtered_row)
+                
+                if collecting:
+                    collected_data.append(filtered_row)
+
+        remove_first_n_lines(output_file, n=10)
+    
+    except KeyboardInterrupt:
+        print("\nProcessing interrupted by user.")
+    
+    filtered_data_queue.put(None)
+
 
 
 def plot_data(raw_data, filtered_data):

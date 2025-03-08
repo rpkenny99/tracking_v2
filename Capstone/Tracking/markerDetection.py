@@ -31,13 +31,10 @@ length_of_rod = 52.72
 first_data = True
 
 MARKER_SIZE = 11.77
-REFERENCE_RVEC = np.array([1.37187207,  1.48928084, -1.04767104])
-REFERENCE_TVEC = np.array([11.85121122,  20.1426366 , 332.84349128])
+REFERENCE_RVEC = np.array([1.37857867,  1.45821971, -1.0593357])
+REFERENCE_TVEC = np.array([6.0781937 ,  19.14238482, 332.69994166])
 FPS = 30
 TIME_PER_FRAME = 1/FPS
-
-rotation_fixed = np.array([1.36403722, 0.59380292, 2.05743332])
-translation_fixed = np.array([-277.35213117,  -39.18417515,  236.98457337])
 
 x_data = []
 y_data = []
@@ -176,36 +173,6 @@ def ensure_marker_faces_camera(rotation):
     # If dot >= 0, we do nothing: it is already facing the camera.
     return rotation
 
-def get_transform_to_reference(rotation, translation, ref_rotation, ref_translation):
-    """
-    Computes the fixed rotation and translation needed to align
-    `rotation` and `translation` with the `ref_rotation` and `ref_translation`.
-    
-    Args:
-        rotation (numpy array): Original rotation vector (Rodrigues format, 3x1).
-        translation (numpy array): Original translation vector (3x1).
-        ref_rotation (numpy array): Reference rotation vector (Rodrigues format, 3x1).
-        ref_translation (numpy array): Reference translation vector (3x1).
-
-    Returns:
-        fixed_rotation (numpy array): Rotation vector needed to align with the reference.
-        fixed_translation (numpy array): Translation vector needed to align with the reference.
-    """
-    # Convert rotation vectors to rotation matrices
-    R_original, _ = cv2.Rodrigues(rotation)
-    R_reference, _ = cv2.Rodrigues(ref_rotation)
-
-    # Compute the required rotation to align R_original to R_reference
-    R_fix = R_reference @ R_original.T  # Rotation needed to align the two
-    
-    # Convert back to a rotation vector
-    fixed_rotation, _ = cv2.Rodrigues(R_fix)
-
-    # Compute the required translation to align translation to ref_translation
-    fixed_translation = ref_translation - (R_fix @ translation)
-
-    return fixed_rotation, fixed_translation
-
 def dodecahedron_center_to_iv(rotation, translation):
     rotation, _ = cv2.Rodrigues(rotation)
 
@@ -251,35 +218,6 @@ def dodecahedron_center_to_iv(rotation, translation):
     rotation, _ = cv2.Rodrigues(rotation)
 
     return rotation, translation
-
-def apply_transform(rotation, translation, fixed_rotation, fixed_translation):
-    """
-    Applies a given rotation and translation transformation to the original rotation and translation.
-
-    Args:
-        rotation (numpy array): Original rotation vector (Rodrigues format, 3x1).
-        translation (numpy array): Original translation vector (3x1).
-        fixed_rotation (numpy array): Rotation vector that aligns to reference (Rodrigues format, 3x1).
-        fixed_translation (numpy array): Translation vector that aligns to reference (3x1).
-
-    Returns:
-        new_rotation (numpy array): Transformed rotation vector (Rodrigues format, 3x1).
-        new_translation (numpy array): Transformed translation vector (3x1).
-    """
-    # Convert rotation vectors to rotation matrices
-    R_original, _ = cv2.Rodrigues(rotation)
-    R_fix, _ = cv2.Rodrigues(fixed_rotation)
-
-    # Apply rotation correction
-    R_new = R_fix @ R_original
-
-    # Convert back to rotation vector
-    new_rotation, _ = cv2.Rodrigues(R_new)
-
-    # Apply translation correction
-    new_translation = (R_fix @ translation) + fixed_translation
-
-    return new_rotation, new_translation
 
 def dodecahedron_center_to_iv_dynamic(rotation, translation, angle1, angle2):
     """
@@ -399,9 +337,9 @@ def ProcessFrame_2(frame, file):
                 markerCorners, MARKER_SIZE, cam_mat, dist_coef
             )
         for i, id in enumerate(markerIds):
-                # cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 4, 4)
-                # print(f"{id=}: {rVec[i]=}, {tVec[i]=}")
-                break
+                cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 4, 4)
+                rotation, translation = transform_to_world(rVec[i], tVec[i])
+                print(f"{id=}: {rotation=}, {translation=}")
 
         success, rotation, translation = aruco.estimatePoseBoard(markerCorners, markerIds, board, cam_mat, dist_coef, r_vectors, t_vectors)
         if success:
@@ -412,50 +350,17 @@ def ProcessFrame_2(frame, file):
                 translation[1][0] *= -1
                 translation[2][0] *= -1
 
-            # reference_rotation = np.array([REFERENCE_RVEC[0],
-            #                                REFERENCE_RVEC[1],
-            #                                -REFERENCE_RVEC[2]],
-            #                                dtype=np.float32)  # Reference rotation (Rodrigues)
-            # reference_translation = np.array([REFERENCE_TVEC[0],
-            #                                   REFERENCE_TVEC[1],
-            #                                   REFERENCE_TVEC[2]],
-            #                                   dtype=np.float32)  # Reference translation
-
-            # fixed_rotation, fixed_translation = get_transform_to_reference(
-            #     np.array([pitch_val, roll_val, yaw_val]),
-            #     np.array([x_val, y_val, z_val]),
-            #     reference_rotation,
-            #     reference_translation
-            # )
-
-            # rotation, translation = apply_transform(
-            #     np.array([pitch_val, roll_val, yaw_val]),
-            #     np.array([x_val, y_val, z_val]),
-            #     rotation_fixed,
-            #     translation_fixed
-            # )
-
-            rotation, translation = dodecahedron_center_to_iv(
-                rotation, translation)
+            # rotation, translation = dodecahedron_center_to_iv(
+            #     rotation, translation)
 
             cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rotation, translation, 7, 4)
 
-            # if len(z_data) != 0:
-            #     if z_val < z_data[-1] - inradius_mm/2:
-            #         consequtive_failures += 1
-            #         if consequtive_failures == 3:
-            #             consequtive_failures = 0
-            #         else:
-            #             z_val = z_data[-1]
-            
-            # print( f"{x_val} {y_val} {z_val} {pitch_val} {roll_val} {yaw_val}")
+            print(f"{rotation=}, {translation=}")
+
             rotation, translation = transform_to_world(rotation,
                                                        translation)
             
             
-            
-
-            print(f"{rotation=}, {translation=}")
 
             # Extract translation and rotation
             x_val = translation[0][0]
@@ -559,7 +464,7 @@ def RunVideoCaptureDetection(queue, vidCapturePath=None):
     
     # init_realtime_plot()
     if vidCapturePath is None:
-        vc = cv2.VideoCapture(1)
+        vc = cv2.VideoCapture(0)
     else:
         vc = cv2.VideoCapture(vidCapturePath)
 
