@@ -184,6 +184,7 @@ def get_unique_filename(base_name="filtered_data", ext=".txt"):
         if not os.path.exists(filename):
             return filename
 
+
 def process_file_3(raw_data_queue,
                    filtered_data_queue,
                    output_file=DEFAULT_FILTERED_DATA_FILE_PATH,
@@ -214,6 +215,9 @@ def process_file_3(raw_data_queue,
                     print(f"Filtered data saved to {filename}")
                     collecting = False
                     collected_data.clear()
+                    
+                    # Reset filtered data
+                    filtered_data = {key: [] for key in ["x", "y", "z", "roll", "pitch", "yaw"]}
                 
                 raw_data_entry = raw_data_queue.get()
                 if raw_data_entry is None:

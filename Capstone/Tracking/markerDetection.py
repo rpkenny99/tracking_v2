@@ -688,8 +688,8 @@ def startTracking(queue):
     
     queue.put(None)
 
-queue = Queue()
-startTracking(queue)
+# queue = Queue()
+# startTracking(queue)
 
 # sweep_dodecahedron_transform()
 

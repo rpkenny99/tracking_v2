@@ -50,10 +50,10 @@ def find_nearest_mean_index(live_data, mean_traj, prev_idx, search_radius=100):
     return closest_idx
 
 # Define separate scaling factors for Pro vs. Amateur
-STD_PRO = 1.85
-STD_AMATEUR = 2.5
+STD_PRO = 1
+STD_AMATEUR = 1.5
 
-def is_within_bounds(live_data, mean_traj, upper_bound, lower_bound, window_size=10):
+def is_within_bounds(live_data, mean_traj, upper_bound, lower_bound, window_size=10000):
     """
     Checks if the live trajectory pose (x, y, z, pitch, roll, yaw) is within bounds.
     Differentiates between "Pro" (stricter) and "Amateur" (looser) tolerance ranges.

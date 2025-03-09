@@ -38,11 +38,11 @@ def main():
 
     raw_tracking = Thread(target=startTracking, args=[raw], daemon=True)
     filter = Thread(target=process_file_2, args=[raw, filtered], daemon=True)
-    # signal_processing = Thread(target=sig_processing, args=[filtered], daemon=True)
+    signal_processing = Thread(target=sig_processing, args=[filtered], daemon=True)
 
     raw_tracking.start()
     filter.start()
-    # signal_processing.start()
+    signal_processing.start()
 
     raw_tracking.join()
     display('raw tracking has finished')
@@ -50,8 +50,8 @@ def main():
     filter.join()
     display('filter has finished')
 
-    # signal_processing.join()
-    # display('signal processing has finished')
+    signal_processing.join()
+    display('signal processing has finished')
 
 
     display('Finished')
