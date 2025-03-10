@@ -17,7 +17,7 @@ velocity_history = deque(maxlen=7)  # Stores last 7 translational velocities
 
 markerDict = aruco.getPredefinedDictionary(aruco.DICT_6X6_100)
 paramMarkers = aruco.DetectorParameters()
-calib_data_path = r"Capstone\Tracking\Calibration\calib_data\MultiMatrix.npz"
+calib_data_path = r"Capstone/Tracking/Calibration/calib_data/MultiMatrix.npz"
 calib_data = np.load(calib_data_path)
 
 cam_mat = calib_data["camMatrix"]
