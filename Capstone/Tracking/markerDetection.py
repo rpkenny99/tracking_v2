@@ -393,8 +393,8 @@ def ProcessFrame_2(frame, file):
                 translation[1][0] *= -1
                 translation[2][0] *= -1
 
-            rotation, translation = dodecahedron_center_to_iv(
-                rotation, translation)
+            # rotation, translation = dodecahedron_center_to_iv(
+            #     rotation, translation)
 
             cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rotation, translation, 7, 4)
 

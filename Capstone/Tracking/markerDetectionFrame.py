@@ -79,44 +79,16 @@ def ProcessFrame_2(frame, file):
                 markerCorners, MARKER_SIZE, cam_mat, dist_coef
             )
         for i, id in enumerate(markerIds):
-                # cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 4, 4)
+                cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 4, 4)
+                cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 7, 4)
                 print(f"{id=}: {rVec[i]=}, {tVec[i]=}")
 
         frame = aruco.drawDetectedMarkers(frame, markerCorners, markerIds)
-
-        cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec, tVec, 7, 4)
-
-        # If the z-value is negative it means pose jumping occured.
-        # Inverse all values in this scenario.
-        if tVec[2][0] < 0:
-            tVec[0][0] *= -1
-            tVec[1][0] *= -1
-            tVec[2][0] *= -1
-
-        rotation, translation = transform_to_world(rVec, tVec)
-
-        # Extract translation and rotation
-        x_val = translation[0][0]
-        y_val = translation[1][0]
-        z_val = translation[2][0]
-
-        # rotation = ensure_marker_faces_camera(rotation)
-
-        pitch_val = rotation[0][0]
-        roll_val  = rotation[1][0]
-        yaw_val   = rotation[2][0]
-        
-        print( f"{x_val} {y_val} {z_val} {pitch_val} {roll_val} {yaw_val}")
-
-        # Write to text file
-        result_string = f"{x_val} {y_val} {z_val} {pitch_val} {roll_val} {yaw_val}"
-
-        file.write(result_string + "\n")
         
         # Update the real-time plot
         # update_realtime_plot(pitch_val, roll_val, yaw_val)
               
-    return frame, [x_val, y_val, z_val, pitch_val, roll_val, yaw_val]
+    return frame, [rVec, tVec]
 
 def rotation_around_y(d):
     r = np.deg2rad(d)
@@ -165,7 +137,7 @@ def RunVideoCaptureDetection(queue, vidCapturePath=None):
     with open('Capstone/Tracking/data.txt', 'w') as file:
         while rval:
             post_process_frame, data = ProcessFrame_2(frame, file)
-            if data[0] != None:
+            if data is not None:
                 if first_data:
                     # Discard first data because it is faulty
                     first_data = False
@@ -189,6 +161,6 @@ def startTrackingPerspective(queue):
     RunVideoCaptureDetection(queue)
     queue.put(None)
 
-# queue = Queue()
-# startTracking(queue)
+queue = Queue()
+startTrackingPerspective(queue)
 

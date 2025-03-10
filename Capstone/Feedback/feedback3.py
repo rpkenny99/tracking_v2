@@ -408,7 +408,7 @@ class FeedbackUI(QMainWindow):
         pitch, roll, yaw = rodrigues_to_euler(np.array([pitch, roll, yaw]))
 
         simulated_position = f"({x:.2f}, {y:.2f}, {z:.2f})"
-        simulated_angle = roll  # Assume pitch represents needle angle
+        simulated_angle = pitch  # Assume pitch represents needle angle
         simulated_depth = 1   # Assume roll represents depth
 
         self.positionInput.setText(simulated_position)
