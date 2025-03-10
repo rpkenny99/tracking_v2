@@ -39,8 +39,8 @@ length_of_rod = 52.72
 first_data = True
 
 MARKER_SIZE = 11.77
-REFERENCE_RVEC = np.array([-0.28372252, -2.57533886,  2.01505923])
-REFERENCE_TVEC = np.array([2.96323532,  55.47195016, 274.23808405])
+REFERENCE_RVEC = np.array([1.74035237, -0.86681151,  0.69432179])
+REFERENCE_TVEC = np.array([45.45568553,  46.3915288 , 224.04391321])
 FPS = 30
 TIME_PER_FRAME = 1/FPS
 
@@ -159,7 +159,7 @@ def compute_velocity(rvec_curr, tvec_curr, delta_t):
 
         # Flag data as faulty if current velocity exceeds 1.8 * standard deviation
         fault_flag = np.any(np.abs(current_velocity - moving_avg) > 1.8 * std_dev)
-        print(f"{fault_flag=}")
+        # print(f"{fault_flag=}")
     else:
         fault_flag = False  # Not enough data to determine anomaly
 
@@ -414,7 +414,7 @@ def ProcessFrame_2(frame, file):
             rotation_prev = rotation
             translation_prev = translation
 
-            print(f"{rotation=}, {translation=}")
+            # print(f"{rotation=}, {translation=}")
             
 
             # Extract translation and rotation
@@ -423,6 +423,8 @@ def ProcessFrame_2(frame, file):
             z_val = translation[2][0]
 
             # rotation = ensure_marker_faces_camera(rotation)
+
+            # pitch_val, roll_val, yaw_val = rodrigues_to_euler(rotation)
 
             pitch_val = rotation[0][0]
             roll_val  = rotation[1][0]
@@ -513,8 +515,7 @@ def dodecahedron_aruco_points():
   
     return all_aruco_points
 
-def RunVideoCaptureDetection(queue, vidCapturePath=None):
-    global first_data
+def RunVideoCaptureDetection(queue, tracking_ready, vidCapturePath=None):
     print("Trying to open video capture device")
     
     # init_realtime_plot()
@@ -533,22 +534,17 @@ def RunVideoCaptureDetection(queue, vidCapturePath=None):
     else:
         rval = False
 
-    counter = 0
+    tracking_ready.put(1)
 
     with open('Capstone/Tracking/data.txt', 'w') as file:
         while rval:
             post_process_frame, data = ProcessFrame_2(frame, file)
             if data[0] != None:
-                if first_data:
-                    # Discard first data because it is faulty
-                    first_data = False
-                else:
-                    queue.put(data)
+                queue.put(data)
                 # print(f"Putting: {data} into queue\n")
 
 
             rval, frame = vc.read()
-            counter += 1
 
             key = cv2.waitKey(20)
             if key == 27: # exit on ESC
@@ -678,18 +674,18 @@ def plot_aruco_board():
     plt.pause(40)  # A small pause so that the figure gets updated
 
 
-def startTracking(queue):
+def startTracking(queue, tracking_ready):
     global board
         
     board = setupArucoBoard()
     # plot_aruco_board()
-    RunVideoCaptureDetection(queue)
+    RunVideoCaptureDetection(queue, tracking_ready)
     # RunTestImageDetection()
     
     queue.put(None)
 
-# queue = Queue()
-# startTracking(queue)
+# queue, tracking_ready = Queue(), Queue()
+# startTracking(queue, tracking_ready)
 
 # sweep_dodecahedron_transform()
 

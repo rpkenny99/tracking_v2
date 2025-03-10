@@ -10,7 +10,7 @@ def time_it(func):
         start_time = time.perf_counter()
         result = func(*args, **kwargs)
         end_time = time.perf_counter()
-        print(f"{func.__name__} executed in {end_time - start_time:.6f} seconds")
+        # print(f"{func.__name__} executed in {end_time - start_time:.6f} seconds")
         return result
     return wrapper
 
@@ -63,7 +63,7 @@ def is_within_bounds(live_data, mean_traj, upper_bound, lower_bound, window_size
     """
     global prev_idx
     curr_idx = find_nearest_mean_index(live_data, mean_traj, prev_idx=prev_idx)
-    print(f"Initial closest index: {curr_idx}")
+    # print(f"Initial closest index: {curr_idx}")
 
     # Define search window around the closest index
     start_idx = max(curr_idx - window_size, 0)
@@ -94,7 +94,7 @@ def is_within_bounds(live_data, mean_traj, upper_bound, lower_bound, window_size
     return within_pro, within_amateur, curr_idx
 
 
-def sig_processing(filtered_data_queue):
+def sig_processing(filtered_data_queue, sig_processed_queue):
     """
     Receives live trajectory data, finds the closest mean trajectory point, and 
     checks if it's within the standard deviation bounds.
@@ -107,9 +107,12 @@ def sig_processing(filtered_data_queue):
         filtered_data_entry = filtered_data_queue.get()
         if filtered_data_entry is None:
             print("Signal Processor Dying...")
+            sig_processed_queue.put(None)
             break
 
-        print(f"Received Live Data: {filtered_data_entry}")
+        # print(f"Received Live Data: {filtered_data_entry}")
+        if sig_processed_queue.empty():
+            sig_processed_queue.put(filtered_data_entry)
 
         # Check if the live data is within bounds
         within_bounds_pro, within_bounds_amateur, nearest_idx = is_within_bounds(filtered_data_entry, mean_traj, upper_bound, lower_bound)

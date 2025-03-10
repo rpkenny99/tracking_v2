@@ -7,6 +7,7 @@ from queue import Queue
 from Tracking.markerDetection import startTracking
 from Filter.Filter_Graphs import process_file_2
 from SignalProcessing.signal_processing import sig_processing
+from Feedback.feedback3 import MainApplication
 import time
 logging.basicConfig(format='%(levelname)s - %(asctime)s.%(msecs)03d: %(message)s',datefmt='%H:%M:%S', level=logging.DEBUG)
 
@@ -35,14 +36,24 @@ def perform_work(work):
 def main():
     raw = Queue()
     filtered = Queue()
+    tracking_ready = Queue()
+    sig_processed = Queue()
 
-    raw_tracking = Thread(target=startTracking, args=[raw], daemon=True)
+    raw_tracking = Thread(target=startTracking, args=[raw, tracking_ready], daemon=True)
     filter = Thread(target=process_file_2, args=[raw, filtered], daemon=True)
-    signal_processing = Thread(target=sig_processing, args=[filtered], daemon=True)
+    signal_processing = Thread(target=sig_processing, args=[filtered, sig_processed], daemon=True)
 
     raw_tracking.start()
     filter.start()
     signal_processing.start()
+
+    # Run the PyQt GUI in the main thread
+    main_app = MainApplication(sig_processed)
+    while True:
+        if tracking_ready.get() == 1:
+            break
+
+    main_app.run()  # This blocks execution``
 
     raw_tracking.join()
     display('raw tracking has finished')

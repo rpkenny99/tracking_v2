@@ -6,6 +6,11 @@ from PyQt6.QtWidgets import (
 )
 import sys
 from random import uniform
+from queue import Queue
+
+import cv2
+import numpy as np
+from scipy.spatial.transform import Rotation as R
 
 class IntroScreen(QDialog):
     """Introductory screen to start the simulation."""
@@ -52,7 +57,7 @@ class PickVeinScreen(QDialog):
 
         # Arm Image
         self.arm_image_label = QLabel(self)
-        self.pixmap = QPixmap("redv3in.png")
+        self.pixmap = QPixmap("Capstone/Feedback/redv3in.png")
 
         # Adjust the image size here by changing the width and height values
         self.image_width = 950  # Set your desired width in pixels
@@ -114,12 +119,12 @@ class PickInsertionPointScreen(QDialog):
         
         # Load the appropriate image based on the selected vein
         if self.selected_vein == "Left Vein":
-            self.pixmap = QPixmap("leftvein-removebg-preview.png")
+            self.pixmap = QPixmap("Capstone/Feedback/leftvein-removebg-preview.png")
         elif self.selected_vein == "Right Vein":
-            self.pixmap = QPixmap("rightvein-removebg-preview.png")
+            self.pixmap = QPixmap("Capstone/Feedback/rightvein-removebg-preview.png")
         else:
             # Default image if no vein is selected (optional)
-            self.pixmap = QPixmap("default_image.png")
+            self.pixmap = QPixmap("Capstone/Feedback/default_image.png")
 
         self.arm_image_label.setPixmap(self.pixmap.scaled(950, 450, Qt.AspectRatioMode.KeepAspectRatio))
         self.arm_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -157,15 +162,36 @@ class PickInsertionPointScreen(QDialog):
         self.selected_point = "Point C"
         self.accept()
 
+def rodrigues_to_euler(rodrigues_vector):
+    """
+    Converts a Rodrigues rotation vector to Euler angles (degrees), avoiding gimbal lock issues.
+    
+    Parameters:
+        rodrigues_vector (numpy array): (3,) Rodrigues vector [rx, ry, rz]
+
+    Returns:
+        euler_angles (numpy array): (3,) Euler angles [yaw, pitch, roll] in degrees
+    """
+    # Convert Rodrigues vector to rotation matrix
+    rotation_matrix, _ = cv2.Rodrigues(rodrigues_vector)
+    
+    # Convert quaternion to Euler angles in XYZ convention (adjust as needed)
+    euler_angles = R.from_matrix(rotation_matrix).as_euler('xyz', degrees=True)
+
+    print(f"{euler_angles=}, {rodrigues_vector=}\n")
+    
+    return euler_angles
+
+
 class FeedbackUI(QMainWindow):
-    def __init__(self, selected_vein, selected_point, max_updates=7, update_interval=1000):
+    def __init__(self, selected_vein, selected_point, max_updates=7, update_interval=100, work_queue=None):
         super().__init__()
         self.setWindowTitle("Feedback UI - Needle Insertion")
-        self.showFullScreen()  # Make the window maximized
+        self.showFullScreen()
 
-        # Store the selected vein and insertion point
         self.selected_vein = selected_vein
         self.selected_point = selected_point
+        self.work_queue = work_queue
 
         # Debug statements
         print(f"FeedbackUI - Selected Vein: {self.selected_vein}")
@@ -184,11 +210,10 @@ class FeedbackUI(QMainWindow):
         self.total_depth_deviation = 0  # To accumulate depth deviation
 
         # Initialize the pixmap attribute with a default image
-        self.pixmap = QPixmap("default_image.png")  # Ensure this image exists
+        self.pixmap = QPixmap("Capstone/Feedback/default_image.png")  # Ensure this image exists
 
         self._createDisplay()
 
-        # Timer for real-time updates
         self.timer = QTimer()
         self.timer.timeout.connect(self._updateData)
         self.timer.start(update_interval)
@@ -216,21 +241,21 @@ class FeedbackUI(QMainWindow):
         # Load the appropriate image based on the selected vein and insertion point
         if self.selected_vein == "Left Vein":
             if self.selected_point == "Point A":
-                self.pixmap = QPixmap("0007.png")
+                self.pixmap = QPixmap("Capstone/Feedback/0007.png") # MISSING
             elif self.selected_point == "Point B":
-                self.pixmap = QPixmap("middleleftvein-removebg-preview.png")
+                self.pixmap = QPixmap("Capstone/Feedback/middleleftvein-removebg-preview.png")
             elif self.selected_point == "Point C":
-                self.pixmap = QPixmap("bottomleftvein-removebg-preview.png")
+                self.pixmap = QPixmap("Capstone/Feedback/bottomleftvein-removebg-preview.png")
         elif self.selected_vein == "Right Vein":
             if self.selected_point == "Point A":
-                self.pixmap = QPixmap("toprightvein-removebg-preview.png")
+                self.pixmap = QPixmap("Capstone/Feedback/toprightvein-removebg-preview.png")
             elif self.selected_point == "Point B":
-                self.pixmap = QPixmap("middlerightvein-removebg-preview.png")
+                self.pixmap = QPixmap("Capstone/Feedback/middlerightvein-removebg-preview.png")
             elif self.selected_point == "Point C":
-                self.pixmap = QPixmap("bottomrightvein-removebg-preview.png")
+                self.pixmap = QPixmap("Capstone/Feedback/bottomrightvein-removebg-preview.png")
         else:
             # Default image if no vein or point is selected (optional)
-            self.pixmap = QPixmap("default_image.png")
+            self.pixmap = QPixmap("Capstone/Feedback/default_image.png") # MISSING
 
         # Debug statement to confirm the image path
         print(f"Loading image: {self.pixmap}")
@@ -238,7 +263,7 @@ class FeedbackUI(QMainWindow):
         # Ensure the pixmap is loaded successfully
         if self.pixmap.isNull():
             print(f"Error: Failed to load image for vein={self.selected_vein}, point={self.selected_point}")
-            self.pixmap = QPixmap("default_image.png")  # Fallback to default image
+            self.pixmap = QPixmap("Capstone/Feedback/default_image.png")  # Fallback to default image
 
         self.arm_image_label.setPixmap(self.pixmap.scaled(335, 475))
         self.arm_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -251,22 +276,22 @@ class FeedbackUI(QMainWindow):
 
         # Directional arrows (GIFs)
         self.arrow_up = QLabel(self.arm_image_label)
-        self.arrow_up_movie = QMovie("arrow-1153-256-mainup-1-unscreen")
+        self.arrow_up_movie = QMovie("Capstone/Feedback/arrow-1153-256-mainup-1-unscreen")
         self.arrow_up.setMovie(self.arrow_up_movie)
         self.arrow_up.setVisible(False)
 
         self.arrow_down = QLabel(self.arm_image_label)
-        self.arrow_down_movie = QMovie("arrow-1153_256(maindown).gif")
+        self.arrow_down_movie = QMovie("Capstone/Feedback/arrow-1153_256(maindown).gif")
         self.arrow_down.setMovie(self.arrow_down_movie)
         self.arrow_down.setVisible(False)
 
         self.arrow_left = QLabel(self.arm_image_label)
-        self.arrow_left_movie = QMovie("arrow-358_256(mainleft).gif")
+        self.arrow_left_movie = QMovie("Capstone/Feedback/arrow-358_256(mainleft).gif")
         self.arrow_left.setMovie(self.arrow_left_movie)
         self.arrow_left.setVisible(False)
 
         self.arrow_right = QLabel(self.arm_image_label)
-        self.arrow_right_movie = QMovie("arrow-358-256-mainright--unscreen")
+        self.arrow_right_movie = QMovie("Capstone/Feedback/arrow-358-256-mainright--unscreen")
         self.arrow_right.setMovie(self.arrow_right_movie)
         self.arrow_right.setVisible(False)
 
@@ -367,15 +392,24 @@ class FeedbackUI(QMainWindow):
 
     def _updateData(self):
         """Simulate data updates and display feedback for needle guidance."""
-        if self.update_count >= self.max_updates:
-            self.timer.stop()
-            self.promptsLog.append("Simulation complete.")
-            self._showSummaryPage()
+        
+        if not self.work_queue.empty():
+            data = self.work_queue.get()
+            if data is None:
+                self.timer.stop()
+                self.promptsLog.append("Simulation complete.")
+                self._showSummaryPage()
+                return
+        else:
             return
+        
+        x, y, z, pitch, roll, yaw = data
+        
+        pitch, roll, yaw = rodrigues_to_euler(np.array([pitch, roll, yaw]))
 
-        simulated_position = f"({uniform(-5, 5):.2f}, {uniform(-5, 5):.2f}, {uniform(-5, 5):.2f})"
-        simulated_angle = uniform(25, 31)
-        simulated_depth = uniform(40, 51)
+        simulated_position = f"({x:.2f}, {y:.2f}, {z:.2f})"
+        simulated_angle = roll  # Assume pitch represents needle angle
+        simulated_depth = 1   # Assume roll represents depth
 
         self.positionInput.setText(simulated_position)
         self.angleInput.setText(f"{simulated_angle:.2f}")
@@ -511,7 +545,8 @@ class FeedbackUI(QMainWindow):
 
 class MainApplication:
     """Manages the flow of the application."""
-    def __init__(self):
+    def __init__(self, sig_processed_queue):
+        self.sig_processed_queue = sig_processed_queue
         self.app = QApplication(sys.argv)
         self.selected_vein = None
         self.selected_insertion_point = None
@@ -533,10 +568,11 @@ class MainApplication:
                     print(f"Selected Insertion Point: {self.selected_insertion_point}")  # Debug statement
 
                     # Launch Feedback UI with selected vein and insertion point
-                    feedback_ui = FeedbackUI(self.selected_vein, self.selected_insertion_point)
+                    feedback_ui = FeedbackUI(self.selected_vein, self.selected_insertion_point, work_queue=self.sig_processed_queue)
                     feedback_ui.show()
                     sys.exit(self.app.exec())
 
 if __name__ == "__main__":
-    main_app = MainApplication()
+    queue = Queue()
+    main_app = MainApplication(queue)
     main_app.run()

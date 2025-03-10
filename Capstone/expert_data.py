@@ -35,8 +35,9 @@ def perform_work(work):
 def main():
     raw = Queue()
     filtered = Queue()
+    tracking_ready = Queue()
 
-    raw_tracking = Thread(target=startTracking, args=[raw], daemon=True)
+    raw_tracking = Thread(target=startTracking, args=[raw, tracking_ready], daemon=True)
     filter = Thread(target=process_file_3, args=[raw, filtered], daemon=True)
 
     raw_tracking.start()
