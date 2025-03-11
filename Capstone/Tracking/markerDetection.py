@@ -39,8 +39,8 @@ length_of_rod = 52.72
 first_data = True
 
 MARKER_SIZE = 11.77
-REFERENCE_RVEC = np.array([1.74035237, -0.86681151,  0.69432179])
-REFERENCE_TVEC = np.array([45.45568553,  46.3915288 , 224.04391321])
+REFERENCE_RVEC = np.array([1.20263745,  1.27789276, -1.1583594])
+REFERENCE_TVEC = np.array([32.98057254,  70.30563935, 276.1625761])
 FPS = 30
 TIME_PER_FRAME = 1/FPS
 
@@ -246,8 +246,8 @@ def dodecahedron_center_to_iv(rotation, translation):
     # Apply the rotation
     rotation = R_local_y @ rotation  # Rotate marker in its local frame
 
-    translation = translation + (inradius_mm + length_of_rod) * rotation[:, 0].reshape(3, 1)
-    translation = translation + (2) * rotation[:, 1].reshape(3, 1)
+    # translation = translation + (inradius_mm + length_of_rod) * rotation[:, 0].reshape(3, 1)
+    # translation = translation + (2) * rotation[:, 1].reshape(3, 1)
     
     # Convert back to rotation vector
     rotation, _ = cv2.Rodrigues(rotation)
@@ -379,7 +379,7 @@ def ProcessFrame_2(frame, file):
             )
         for i, id in enumerate(markerIds):
                 # cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 4, 4)
-                # print(f"{id=}: {rVec[i]=}, {tVec[i]=}")
+                print(f"{id=}: {rVec[i]=}, {tVec[i]=}")
                 # rotation, translation = transform_to_world(rVec[i], tVec[i])
                 # print(f"{id=}: {rotation=}, {translation=}")
                 break
@@ -393,8 +393,8 @@ def ProcessFrame_2(frame, file):
                 translation[1][0] *= -1
                 translation[2][0] *= -1
 
-            # rotation, translation = dodecahedron_center_to_iv(
-            #     rotation, translation)
+            rotation, translation = dodecahedron_center_to_iv(
+                rotation, translation)
 
             cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rotation, translation, 7, 4)
 
@@ -684,8 +684,9 @@ def startTracking(queue, tracking_ready):
     
     queue.put(None)
 
-# queue, tracking_ready = Queue(), Queue()
-# startTracking(queue, tracking_ready)
+if __name__ == "__main__":
+    queue, tracking_ready = Queue(), Queue()
+    startTracking(queue, tracking_ready)
 
 # sweep_dodecahedron_transform()
 

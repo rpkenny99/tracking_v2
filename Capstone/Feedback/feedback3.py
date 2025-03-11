@@ -12,6 +12,8 @@ import cv2
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
+REFERENCE_RVEC = np.array([1.20263745,  1.27789276, -1.1583594])
+
 class IntroScreen(QDialog):
     """Introductory screen to start the simulation."""
     def __init__(self):
@@ -161,6 +163,34 @@ class PickInsertionPointScreen(QDialog):
         """Handle selection of Point C."""
         self.selected_point = "Point C"
         self.accept()
+
+def angle_between_rodrigues(vec1, vec2=REFERENCE_RVEC):
+    # Convert Rodrigues vectors to rotation matrices
+    R1, _ = cv2.Rodrigues(vec1)
+    R2, _ = cv2.Rodrigues(vec2)
+
+    # Extract unit vectors along the X and Z axes (column vectors of the rotation matrix)
+    x1 = R1[:, 0]  # X-axis vector from the first rotation
+    y1 = R1[:, 1]  # X-axis vector from the first rotation
+    z1 = R1[:, 2]  # X-axis vector from the first rotation
+    x2 = R2[:, 0]  # X-axis vector from the first rotation
+    y2 = R2[:, 1]  # X-axis vector from the first rotation
+    z2 = R2[:, 2]  # X-axis vector from the first rotation
+
+    # Compute the dot product and get the angle
+    roll = np.dot(x1, z2)
+    roll_rad = np.arccos(np.clip(roll, -1.0, 1.0))  # Clip to avoid numerical errors
+    roll_deg = np.degrees(roll_rad)
+
+    # Compute the dot product and get the angle
+    pitch = np.dot(z1, z2)
+    pitch_rad = np.arccos(np.clip(pitch, -1.0, 1.0))  # Clip to avoid numerical errors
+    pitch_deg = np.degrees(pitch_rad)
+
+    yaw_rad = np.arctan2(z1[0], z1[2])  # atan2(X component, Z component)
+    yaw_deg = np.degrees(yaw_rad)
+
+    return roll_deg, pitch_deg, yaw_deg
 
 def rodrigues_to_euler(rodrigues_vector):
     """
@@ -405,7 +435,7 @@ class FeedbackUI(QMainWindow):
         
         x, y, z, pitch, roll, yaw = data
         
-        pitch, roll, yaw = rodrigues_to_euler(np.array([pitch, roll, yaw]))
+        roll, yaw, pitch = angle_between_rodrigues(np.array([pitch, roll, yaw]))
 
         simulated_position = f"({x:.2f}, {y:.2f}, {z:.2f})"
         simulated_angle = pitch  # Assume pitch represents needle angle
