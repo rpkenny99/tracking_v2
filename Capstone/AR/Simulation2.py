@@ -2,20 +2,32 @@ import sys
 import numpy as np
 import cv2
 from OpenGL.GL import *
-from OpenGL.GLUT import *
+from OpenGL.GLUT import * # glutInit, glutInitDisplayMode, GLUT_DOUBLE, GLUT_RGB, GLUT_DEPTH, glutCreateWindow
 from OpenGL.GLU import *
+import os
+sys.path.append(os.path.join("Capstone", "Tracking"))
+import markerDetectionFrame
+import queue
+import threading
+# import multiprocessing
+# import random
+# import logging
 # import viewer_control2
+
+tracking_queue = None
 
 
 # Initialize global variables for perspective data
-viewer_position = [0, 0, 5]  # Starting position (x, y, z)
+viewer_position = [0, 0, 10]  # Starting position (x, y, z)
 viewer_orientation = [0, 0, 0]  # Starting orientation (pitch, yaw, roll)
 countV = 0
 
+tracking_queue = queue.Queue()
+
 # Function to simulate receiving perspective data
 def update_perspective():
-    global viewer_position, viewer_orientation, countV
-    countV += 1
+    global viewer_position, viewer_orientation, countV, tracking_queue
+    # countV += 1
     # while True:
     #     item = queue.get()               # blocking get
     #     if item is None:               # <-- sentinel
@@ -36,14 +48,34 @@ def update_perspective():
     # Yaw rotation 
     # viewer_orientation[1] += 0.1 
 
-    if countV == 1000:
-        countV = 00
+    # if countV == 1000:
+    #     countV = 00
 
-    elif countV >= 500:
-        viewer_position[1] -= 0.01 
+    # elif countV >= 500:
+    #     viewer_position[0] -= 0.01 
         
+    # else:
+    #     viewer_position[0] += 0.01
+
+    
+    if not tracking_queue.empty():
+        # Check if there is data in the queue (non-blocking)
+        data = tracking_queue.get()
+        if data:
+            rVec, tVec = data  # Extract rotation and translation vectors
+
+            # Update viewer position based on marker tracking
+            viewer_position[0] = tVec[0][0] / 100  # Scale for OpenGL
+            viewer_position[1] = tVec[1][0] / 100
+            viewer_position[2] = tVec[2][0] / 100
+
+            # Convert rotation vector to Euler angles (approximation)
+            viewer_orientation[0] = rVec[0][0] * (180 / np.pi)  # Pitch
+            viewer_orientation[1] = rVec[1][0] * (180 / np.pi)  # Yaw
+            viewer_orientation[2] = rVec[2][0] * (180 / np.pi)  # Roll
+
     else:
-        viewer_position[1] += 0.01
+        return  # No new data, keep previous values
     
 
     
@@ -199,7 +231,10 @@ def keyboard(key, x, y):
         
 
 # Main function
-def main():
+def mainProjection(tracking):
+    global tracking_queue
+    tracking_queue = tracking
+    os.environ["DISPLAY"] = ":0"
     glutInit(sys.argv)
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
     glutInitWindowSize(glutGet(GLUT_SCREEN_WIDTH), glutGet(GLUT_SCREEN_HEIGHT))     # if not full screen, use 800,600
@@ -212,4 +247,4 @@ def main():
     glutMainLoop()
 
 if __name__ == "__main__":
-    main()
+    mainProjection()

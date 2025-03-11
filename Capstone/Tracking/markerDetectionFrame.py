@@ -25,6 +25,7 @@ REFERENCE_TVEC = np.array([-132.74267261,   62.84248454,  339.17614627])
 
 def DisplayFrame(frame):
     cv2.imshow("preview", frame)
+    cv2.waitKey(1)  # Non-blocking, so AR projection starts immediately
 
 def transform_to_world(rVec, tVec, rVec_origin=REFERENCE_RVEC, tVec_origin=REFERENCE_TVEC):
     """
@@ -68,7 +69,7 @@ def ProcessFrame_2(frame, file):
         grayFrame, markerDict, parameters=paramMarkers
     )
 
-    x_val, y_val, z_val, pitch_val, roll_val, yaw_val = None, None, None, None, None, None
+    x_val, y_val, z_val, pitch_val, roll_val, yaw_val, rVec, tVec = None, None, None, None, None, None, None, None
 
     # NOTE: For tracking of the users line of sight, there is a chance other AruCo
     # Markers are visible. Therefore, we will have to use a unique marker ID on the glasses.
