@@ -162,6 +162,6 @@ def startTrackingPerspective(queue):
     RunVideoCaptureDetection(queue)
     queue.put(None)
 
-queue = Queue()
-startTrackingPerspective(queue)
+# queue = Queue()
+# startTrackingPerspective(queue)
 

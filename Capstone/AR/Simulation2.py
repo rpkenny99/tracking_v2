@@ -61,18 +61,26 @@ def update_perspective():
     if not tracking_queue.empty():
         # Check if there is data in the queue (non-blocking)
         data = tracking_queue.get()
-        if data:
-            rVec, tVec = data  # Extract rotation and translation vectors
+        print(f"{data=}\n")
+        if data is not None:
+            if data[0] is not None and data[1] is not None:
+                rVec, tVec = data  # Extract rotation and translation vectors
 
-            # Update viewer position based on marker tracking
-            viewer_position[0] = tVec[0][0] / 100  # Scale for OpenGL
-            viewer_position[1] = tVec[1][0] / 100
-            viewer_position[2] = tVec[2][0] / 100
+                # Update viewer position based on marker tracking
+                viewer_position[0] = tVec[0][0][0] / 100  # Scale for OpenGL
+                viewer_position[1] = tVec[0][0][1] / 100
+                viewer_position[2] = tVec[0][0][2] / 100
 
-            # Convert rotation vector to Euler angles (approximation)
-            viewer_orientation[0] = rVec[0][0] * (180 / np.pi)  # Pitch
-            viewer_orientation[1] = rVec[1][0] * (180 / np.pi)  # Yaw
-            viewer_orientation[2] = rVec[2][0] * (180 / np.pi)  # Roll
+                # Convert rotation vector to Euler angles (approximation)
+                viewer_orientation[0] = rVec[0][0][0] * (180 / np.pi)  # Pitch
+                viewer_orientation[1] = rVec[0][0][1] * (180 / np.pi)  # Yaw
+                viewer_orientation[2] = rVec[0][0][2] * (180 / np.pi)  # Roll
+            else:
+                return
+        else:
+            window_id = glutGetWindow()  # Get the current window ID
+            glutDestroyWindow(window_id)  # Destroy the window
+            sys.exit(0)  # Exit the program cleanly
 
     else:
         return  # No new data, keep previous values
@@ -194,7 +202,7 @@ def display():
     # Apply viewer perspective transformations
     gluLookAt(viewer_position[0], viewer_position[1], viewer_position[2],
               0, 0, 0,  # Looking at the origin
-              0, 1, 0)  # Up direction, orientation
+              0, 0, 1)  # Up direction, orientation
 
     # Apply rotation based on orientation
     glRotatef(viewer_orientation[0], 1, 0, 0)  # Pitch
@@ -238,7 +246,7 @@ def mainProjection(tracking):
     glutInit(sys.argv)
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
     glutInitWindowSize(glutGet(GLUT_SCREEN_WIDTH), glutGet(GLUT_SCREEN_HEIGHT))     # if not full screen, use 800,600
-    glutCreateWindow("AR Projection Simulation")
+    glutCreateWindow(b"AR Projection Simulation")
     init()
     glutDisplayFunc(display)
     glutKeyboardFunc(keyboard)
