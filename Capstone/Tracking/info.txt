@@ -1,0 +1,4 @@
+In the physical setup, the world coordinate marker is designed to be oriented
+with the top-left corner of the marker facing the bottom-left corner of the table.
+
+Marker 7 showing towards camera.

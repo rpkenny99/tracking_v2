@@ -39,10 +39,16 @@ length_of_rod = 52.72
 first_data = True
 
 MARKER_SIZE = 11.77
-REFERENCE_RVEC = np.array([1.20263745,  1.27789276, -1.1583594])
-REFERENCE_TVEC = np.array([32.98057254,  70.30563935, 276.1625761])
+REFERENCE_RVEC = np.array([1.31687881,  1.44520894, -1.16799433])
+REFERENCE_TVEC = np.array([13.97972204,  59.98416657, 322.67767684])
 FPS = 30
 TIME_PER_FRAME = 1/FPS
+
+unwrap_buffers = {
+    "pitch": deque(maxlen=5),
+    "roll": deque(maxlen=5),
+    "yaw": deque(maxlen=5),
+}
 
 x_data = []
 y_data = []
@@ -209,47 +215,58 @@ def ensure_marker_faces_camera(rotation):
     return rotation
 
 def dodecahedron_center_to_iv(rotation, translation):
+    """
+    Computes the corrected rotation and translation of the dodecahedron marker,
+    discarding points if their Z-axis is incorrect.
+    
+    Args:
+        rotation: Rodrigues rotation vector (3x1 numpy array)
+        translation: Translation vector (3x1 numpy array)
+    
+    Returns:
+        (rotation, translation) if valid, otherwise None
+    """
+    # Convert Rodrigues vector to rotation matrix
     rotation, _ = cv2.Rodrigues(rotation)
 
     # Extract the marker's local Z-axis (third column of R_marker)
-    local_z_axis = rotation[:, 2]  # The third column is the Z-axis
+    local_z_axis = rotation[:, 2]  
 
-    # Convert the rotation into radians
-    angle_rad = np.deg2rad(72*2)
-
-    # Create a rotation matrix about the marker's Z-axis
+    # Rotate by 144 degrees around local Z-axis
+    angle_rad = np.deg2rad(72 * 2)
     R_local_z, _ = cv2.Rodrigues(local_z_axis * angle_rad)
+    rotation = R_local_z @ rotation  
 
-    # Apply the rotation
-    rotation = R_local_z @ rotation  # Rotate marker in its local frame
-
-    # Extract the marker's local Z-axis (third column of R_marker)
-    local_z_axis = rotation[:, 2]  # The third column is the Z-axis
-
-    # Convert the rotation into radians
+    # Rotate by -8 degrees around updated Z-axis
+    local_z_axis = rotation[:, 2]
     angle_rad = np.deg2rad(-8)
-
-    # Create a rotation matrix about the marker's Z-axis
     R_local_z, _ = cv2.Rodrigues(local_z_axis * angle_rad)
+    rotation = R_local_z @ rotation  
 
-    # Apply the rotation
-    rotation = R_local_z @ rotation  # Rotate marker in its local frame
-
-    local_y_axis = rotation[:, 1]  # The third column is the Z-axis
-
-    # Convert the rotation into radians
-    angle_rad = np.deg2rad(7.2)
-
-        # Create a rotation matrix about the marker's Z-axis
+    # Rotate by 97.2 degrees around the updated Y-axis
+    local_y_axis = rotation[:, 1]
+    angle_rad = np.deg2rad(97.2)
     R_local_y, _ = cv2.Rodrigues(local_y_axis * angle_rad)
+    rotation = R_local_y @ rotation  
 
-    # Apply the rotation
-    rotation = R_local_y @ rotation  # Rotate marker in its local frame
+    # Extract the final local Z-axis after transformations
+    final_z_axis = rotation[:, 2]
 
-    # translation = translation + (inradius_mm + length_of_rod) * rotation[:, 0].reshape(3, 1)
-    # translation = translation + (2) * rotation[:, 1].reshape(3, 1)
-    
-    # Convert back to rotation vector
+    # **Check if the transformed Z-axis is positive (wrong direction)**
+    if final_z_axis[2] > 0:
+        print("Invalid pose: Z-axis is incorrectly positive.")
+        return None, None
+        # **Attempt to salvage by flipping 180° around the X-axis**
+        # R_flip_x, _ = cv2.Rodrigues(np.array([np.pi, 0, 0]))  # 180° around X
+        # rotation = R_flip_x @ rotation  # Apply correction
+
+        # # Check if flipping corrected it
+        # final_z_axis = rotation[:, 2]
+        # if final_z_axis[2] > 0:
+        #     print("Could not correct, discarding point.")
+        #     return None  # Discard if still invalid
+
+    # Convert back to Rodrigues vector
     rotation, _ = cv2.Rodrigues(rotation)
 
     return rotation, translation
@@ -356,6 +373,24 @@ def sweep_dodecahedron_transform():
     print(f"✅ Sweep complete! Results saved to {excel_filename}")
 
 
+def angle_between_rodrigues_2(vec1):
+    R1, _ = cv2.Rodrigues(vec1)
+
+    x1 = R1[:, 0]
+    y1 = R1[:, 1]
+    z1 = R1[:, 2]
+
+    yaw_rad = np.arctan2(x1[0], x1[1])
+    yaw_deg = np.degrees(yaw_rad)
+
+    pitch_rad = np.arctan2(z1[1], z1[2])
+    pitch_deg = np.degrees(pitch_rad)
+
+    roll_rad = np.arctan2(y1[2], y1[1])
+    roll_deg = np.degrees(roll_rad)
+
+    return yaw_deg, pitch_deg, roll_deg
+
 def ProcessFrame_2(frame, file):
     global board
     global consequtive_failures
@@ -363,83 +398,86 @@ def ProcessFrame_2(frame, file):
     global paramMarkers
     global rotation_prev
     global translation_prev
-    
+
     grayFrame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     markerCorners, markerIds, rejects = aruco.detectMarkers(
         grayFrame, markerDict, parameters=paramMarkers
     )
 
-    x_val, y_val, z_val, pitch_val, roll_val, yaw_val = None, None, None, None, None, None
+    x_val, y_val, z_val, pitch, roll, yaw = None, None, None, None, None, None
 
     if markerIds is not None:
-
         rVec, tVec, _ = aruco.estimatePoseSingleMarkers(
-                markerCorners, MARKER_SIZE, cam_mat, dist_coef
-            )
+            markerCorners, MARKER_SIZE, cam_mat, dist_coef
+        )
         for i, id in enumerate(markerIds):
-                # cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 4, 4)
-                print(f"{id=}: {rVec[i]=}, {tVec[i]=}")
-                # rotation, translation = transform_to_world(rVec[i], tVec[i])
-                # print(f"{id=}: {rotation=}, {translation=}")
-                break
+            # cv2.drawFrameAxes(frame, cam_mat, dist_coef, rVec[i], tVec[i], 4, 4)
+            print(f"{id=}: {rVec[i]=}, {tVec[i]=}")
+            break
 
-        success, rotation, translation = aruco.estimatePoseBoard(markerCorners, markerIds, board, cam_mat, dist_coef, r_vectors, t_vectors)
+        success, rotation, translation = aruco.estimatePoseBoard(
+            markerCorners, markerIds, board, cam_mat, dist_coef, r_vectors, t_vectors
+        )
+
         if success:
             frame = aruco.drawDetectedMarkers(frame, markerCorners, markerIds)
-            
+
             if translation[2][0] < 0:
                 translation[0][0] *= -1
                 translation[1][0] *= -1
                 translation[2][0] *= -1
 
-            rotation, translation = dodecahedron_center_to_iv(
-                rotation, translation)
+            cv2.drawFrameAxes(frame, cam_mat, dist_coef, rotation, translation, 7, 4)
 
-            cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rotation, translation, 7, 4)
+            rotation, translation = transform_to_world(rotation, translation)
 
-            
+            rotation, translation = dodecahedron_center_to_iv(rotation, translation)
 
-            rotation, translation = transform_to_world(rotation,
-                                                       translation)
-
+            if rotation is None and translation is None:
+                return frame, [None, None, None, None, None, None]
 
             _, _, fault = compute_velocity(rotation, translation, TIME_PER_FRAME)
 
-            if fault == True and rotation_prev is not None and translation_prev is not None:
-                x_val, y_val, z_val, pitch_val, roll_val, yaw_val = None, None, None, None, None, None
-                return frame, [x_val, y_val, z_val, pitch_val, roll_val, yaw_val]
-            
+            if fault and rotation_prev is not None and translation_prev is not None:
+                return frame, [None, None, None, None, None, None]
 
             rotation_prev = rotation
             translation_prev = translation
 
-            # print(f"{rotation=}, {translation=}")
-            
-
-            # Extract translation and rotation
+            # Extract translation
             x_val = translation[0][0]
             y_val = translation[1][0]
             z_val = translation[2][0]
 
-            # rotation = ensure_marker_faces_camera(rotation)
-
-            # pitch_val, roll_val, yaw_val = rodrigues_to_euler(rotation)
-
+            # Extract rotation angles (assuming rotation is in Rodrigues form)
             pitch_val = rotation[0][0]
-            roll_val  = rotation[1][0]
-            yaw_val   = rotation[2][0]
-            # print( f"{x_val} {y_val} {z_val} {pitch_val} {roll_val} {yaw_val}")
+            roll_val = rotation[1][0]
+            yaw_val = rotation[2][0]
+
+            yaw, pitch, roll = angle_between_rodrigues_2(np.array([pitch_val, roll_val, yaw_val]))
+
+            if pitch < 0:
+                pitch = -(180 + pitch)
+            else:
+                pitch = 180 - pitch
+
+            # Store values in rolling unwrap buffers
+            unwrap_buffers["pitch"].append(pitch)
+            unwrap_buffers["roll"].append(roll)
+            unwrap_buffers["yaw"].append(yaw)
+
+            # Apply np.unwrap when enough data is available
+            if len(unwrap_buffers["pitch"]) == 5:
+                pitch = np.degrees(np.unwrap(np.radians(unwrap_buffers["pitch"]), discont=np.radians(60)))[-1]
+                roll = np.degrees(np.unwrap(np.radians(unwrap_buffers["roll"]), discont=np.radians(60)))[-1]
+                yaw = np.degrees(np.unwrap(np.radians(unwrap_buffers["yaw"]), discont=np.radians(60)))[-1]
 
             # Write to text file
-            result_string = f"{x_val} {y_val} {z_val} {pitch_val} {roll_val} {yaw_val}"
-
+            result_string = f"{x_val} {y_val} {z_val} {pitch} {roll} {yaw}"
             file.write(result_string + "\n")
-            
-            # Update the real-time plot
-            # update_realtime_plot(pitch_val, roll_val, yaw_val)
-              
-    return frame, [x_val, y_val, z_val, pitch_val, roll_val, yaw_val]
+
+    return frame, [x_val, y_val, z_val, pitch, roll, yaw]
 
 def rotation_around_y(d):
     r = np.deg2rad(d)
