@@ -17,7 +17,7 @@ velocity_history = deque(maxlen=7)  # Stores last 7 translational velocities
 
 markerDict = aruco.getPredefinedDictionary(aruco.DICT_6X6_100)
 paramMarkers = aruco.DetectorParameters()
-calib_data_path = r"Capstone/Tracking/Calibration/calib_data/MultiMatrix.npz"
+calib_data_path = r"Capstone/Tracking/Calibration/60FOV/calib_data/MultiMatrix.npz"
 calib_data = np.load(calib_data_path)
 
 cam_mat = calib_data["camMatrix"]
@@ -39,8 +39,9 @@ length_of_rod = 52.72
 first_data = True
 
 MARKER_SIZE = 11.77
-REFERENCE_RVEC = np.array([1.31687881,  1.44520894, -1.16799433])
-REFERENCE_TVEC = np.array([13.97972204,  59.98416657, 322.67767684])
+# MARKER_SIZE = 50.8
+REFERENCE_RVEC = np.array([0.89350525,  2.36083362, -1.61624626])
+REFERENCE_TVEC = np.array([95.72448674,  55.98724688, 535.59185169])
 FPS = 30
 TIME_PER_FRAME = 1/FPS
 
@@ -413,7 +414,7 @@ def ProcessFrame_2(frame, file):
         )
         for i, id in enumerate(markerIds):
             # cv2.drawFrameAxes(frame, cam_mat, dist_coef, rVec[i], tVec[i], 4, 4)
-            print(f"{id=}: {rVec[i]=}, {tVec[i]=}")
+            # print(f"{id=}: {rVec[i]=}, {tVec[i]=}")
             break
 
         success, rotation, translation = aruco.estimatePoseBoard(

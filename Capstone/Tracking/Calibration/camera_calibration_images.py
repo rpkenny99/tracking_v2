@@ -10,7 +10,7 @@ squares_x = 18   # number of squares along the X direction
 squares_y = 11   # number of squares along the Y direction
 
 # Keep units consistent: here, we use millimeters (mm).
-square_length = 11.58  # length of each ChArUco square (mm)
+square_length = 11.91  # length of each ChArUco square (mm)
 marker_length = 8.67   # length of each ArUco marker inside the square (mm)
 
 # Choose a 4x4 dictionary. For example, DICT_4X4_50.
@@ -25,7 +25,7 @@ charuco_board = aruco.CharucoBoard(
 # Setup image saving directory
 # --------------------------
 n = 0  # image counter
-image_dir_path = "images"
+image_dir_path = r"Capstone/Tracking/Calibration/90FOV/images"
 
 if not os.path.isdir(image_dir_path):
     os.makedirs(image_dir_path)
@@ -62,7 +62,7 @@ def detect_charuco_board(image, grayImage, board, dictionary):
 # --------------------------
 # Camera setup
 # --------------------------
-cap = cv.VideoCapture(1)
+cap = cv.VideoCapture(0)
 
 # --------------------------
 # Main loop

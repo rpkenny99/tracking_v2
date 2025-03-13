@@ -9,7 +9,7 @@ from queue import Queue
 
 markerDict = aruco.getPredefinedDictionary(aruco.DICT_6X6_100)
 paramMarkers = aruco.DetectorParameters()
-calib_data_path = "Capstone/Tracking/Calibration/calib_data/MultiMatrix.npz"
+calib_data_path = "Capstone/Tracking/Calibration/90FOV/calib_data/MultiMatrix.npz"
 calib_data = np.load(calib_data_path)
 
 cam_mat = calib_data["camMatrix"]
@@ -161,6 +161,7 @@ def startTrackingPerspective(queue):
     RunVideoCaptureDetection(queue)
     queue.put(None)
 
-queue = Queue()
-startTrackingPerspective(queue)
+if __name__ == "__main__":
+    queue = Queue()
+    startTrackingPerspective(queue)
 
