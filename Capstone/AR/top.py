@@ -16,7 +16,7 @@ logging.basicConfig(format='%(levelname)s - %(asctime)s.%(msecs)03d: %(message)s
 def display(msg):
     threadname = threading.current_thread().name
     processname = multiprocessing.current_process().name
-    logging.info(f'{processname}\{threadname}: {msg}')
+    logging.info(f'{processname}\\{threadname}: {msg}')
 
 def create_work(queue, finished, max):
     finished.put(False)

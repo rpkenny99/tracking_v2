@@ -19,7 +19,7 @@ t_vectors = calib_data["tVector"]
 
 first_data = True
 
-MARKER_SIZE = 11.77
+MARKER_SIZE = 50.8
 REFERENCE_RVEC = np.array([1.66040354, -0.43797448,  0.4378116])
 REFERENCE_TVEC = np.array([-132.74267261,   62.84248454,  339.17614627])
 
@@ -80,7 +80,6 @@ def ProcessFrame_2(frame, file):
                 markerCorners, MARKER_SIZE, cam_mat, dist_coef
             )
         for i, id in enumerate(markerIds):
-                cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 4, 4)
                 cv2.drawFrameAxes(frame, cam_mat, dist_coef,  rVec[i], tVec[i], 7, 4)
                 print(f"{id=}: {rVec[i]=}, {tVec[i]=}")
 
@@ -162,6 +161,6 @@ def startTrackingPerspective(queue):
     RunVideoCaptureDetection(queue)
     queue.put(None)
 
-# queue = Queue()
-# startTrackingPerspective(queue)
+queue = Queue()
+startTrackingPerspective(queue)
 

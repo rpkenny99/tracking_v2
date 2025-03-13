@@ -9,9 +9,9 @@ sys.path.append(os.path.join("Capstone", "Tracking"))
 import markerDetectionFrame
 import queue
 import threading
-# import multiprocessing
+import multiprocessing
 # import random
-# import logging
+import logging
 # import viewer_control2
 
 tracking_queue = None
@@ -95,8 +95,8 @@ def init():
     glEnable(GL_DEPTH_TEST)
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
-    # gluPerspective(45, 800/600, 0.1, 50.0)
-    gluPerspective(45, 1024/768, 0.1, 50.0)
+    gluPerspective(45, 800/600, 0.1, 50.0)
+    # gluPerspective(45, 1024/768, 1.0, 50.0)
     glMatrixMode(GL_MODELVIEW)
 
 # Draw the physical object (a simple square)
@@ -202,7 +202,7 @@ def display():
     # Apply viewer perspective transformations
     gluLookAt(viewer_position[0], viewer_position[1], viewer_position[2],
               0, 0, 0,  # Looking at the origin
-              0, 0, 1)  # Up direction, orientation
+              0, 1, 0)  # Up direction, orientation
 
     # Apply rotation based on orientation
     glRotatef(viewer_orientation[0], 1, 0, 0)  # Pitch
@@ -242,8 +242,8 @@ def keyboard(key, x, y):
 def mainProjection(tracking):
     global tracking_queue
     tracking_queue = tracking
-    os.environ["DISPLAY"] = ":0"
-    glutInit(sys.argv)
+    # os.environ["DISPLAY"] = ":0"
+    glutInit(sys.argv[:])
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
     glutInitWindowSize(glutGet(GLUT_SCREEN_WIDTH), glutGet(GLUT_SCREEN_HEIGHT))     # if not full screen, use 800,600
     glutCreateWindow(b"AR Projection Simulation")
@@ -255,4 +255,5 @@ def mainProjection(tracking):
     glutMainLoop()
 
 if __name__ == "__main__":
-    mainProjection()
+    tracking = queue.Queue()
+    mainProjection(tracking)
