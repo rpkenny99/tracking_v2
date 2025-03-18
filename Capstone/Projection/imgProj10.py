@@ -4,7 +4,7 @@ import numpy as np
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QImage
-from feedback3 import FeedbackUI  # Import your UI class
+from Feedback.feedback3 import FeedbackUI  # Import your UI class
 from queue import Queue
 
 def qpixmap_to_numpy(pixmap):
@@ -53,7 +53,7 @@ def update_display(feedback_ui, angle_deg=-25):
     original_image = qpixmap_to_numpy(pixmap)
     
     # Flip horizontally if the projected image is reflected
-    flipped_image = cv2.flip(original_image, -1)
+    flipped_image = cv2.flip(original_image, 0)
     
     # Apply projection transformation
     transformed_image = apply_projection_transform(flipped_image, angle_deg=angle_deg)
@@ -62,7 +62,7 @@ def update_display(feedback_ui, angle_deg=-25):
     cv2.imshow("Projected UI", transformed_image)
     cv2.waitKey(1)  # Small delay for OpenCV event processing
 
-def main():
+def start(sig_processed):
     app = QApplication(sys.argv)
 
     # Supply required parameters and a dummy queue for FeedbackUI
@@ -70,7 +70,7 @@ def main():
     selected_point = "Point A"
     work_queue = Queue()  # Provide an empty queue if needed
 
-    feedback_ui = FeedbackUI(selected_vein, selected_point, work_queue=work_queue)
+    feedback_ui = FeedbackUI(selected_vein, selected_point, work_queue=sig_processed)
     feedback_ui.show()
 
     # Set up a QTimer to update the projection capture periodically (every 100 ms)
@@ -81,4 +81,4 @@ def main():
     sys.exit(app.exec())
 
 if __name__ == "__main__":
-    main()
+    start()
