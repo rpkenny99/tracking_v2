@@ -42,7 +42,7 @@ def apply_projection_transform(image, angle_deg=25):
     warped = cv2.warpPerspective(image, M, (w, h))
     return warped
 
-def update_display(feedback_ui, angle_deg=(-25)):
+def update_display(feedback_ui, angle_deg=-25):
     """
     Capture the updated UI, flip it for reflection, apply the projection transform,
     and then display the result.
@@ -53,7 +53,7 @@ def update_display(feedback_ui, angle_deg=(-25)):
     original_image = qpixmap_to_numpy(pixmap)
     
     # Flip horizontally if the projected image is reflected
-    flipped_image = cv2.flip(original_image, 1)
+    flipped_image = cv2.flip(original_image, -1)
     
     # Apply projection transformation
     transformed_image = apply_projection_transform(flipped_image, angle_deg=angle_deg)
