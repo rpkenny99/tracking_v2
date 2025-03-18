@@ -14,6 +14,8 @@ import multiprocessing
 import logging
 # import viewer_control2
 
+WORLD_COORD_TO_ARM = 81.66, 97.77 # mm right, up
+
 tracking_queue = None
 
 
@@ -64,7 +66,7 @@ def update_perspective():
         print(f"{data=}\n")
         if data is not None:
             if data[0] is not None and data[1] is not None:
-                rVec, tVec = data  # Extract rotation and translation vectors
+                markerIds, rVec, tVec = data  # Extract rotation and translation vectors
 
                 # Update viewer position based on marker tracking
                 viewer_position[0] = tVec[0][0][0] / 100  # Scale for OpenGL

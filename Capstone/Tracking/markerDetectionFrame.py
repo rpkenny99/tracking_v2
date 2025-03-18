@@ -88,7 +88,7 @@ def ProcessFrame_2(frame, file):
         # Update the real-time plot
         # update_realtime_plot(pitch_val, roll_val, yaw_val)
               
-    return frame, [rVec, tVec]
+    return frame, [markerIds, rVec, tVec]
 
 def rotation_around_y(d):
     r = np.deg2rad(d)

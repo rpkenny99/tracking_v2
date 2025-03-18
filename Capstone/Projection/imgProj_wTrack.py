@@ -4,6 +4,10 @@ import numpy as np
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QImage
 from queue import Queue
+import os
+sys.path.append(os.path.join("Capstone", "Tracking"))
+import markerDetectionFrame
+import queue
 
 # Import the UI from feedback3.py (adjust the import path as needed)
 from feedback3 import FeedbackUI
