@@ -7,7 +7,7 @@ from queue import Queue
 from Tracking.markerDetection import startTracking
 from Filter.Filter_Graphs import process_file_2
 from SignalProcessing.signal_processing import sig_processing
-from Feedback.feedback3 import MainApplication
+from Feedback.updated_feeback import MainApplication
 from Projection.imgProj10 import start
 import time
 logging.basicConfig(format='%(levelname)s - %(asctime)s.%(msecs)03d: %(message)s',datefmt='%H:%M:%S', level=logging.DEBUG)
@@ -50,14 +50,14 @@ def main():
 
     # Run the PyQt GUI in the main thread
     
-    # main_app = MainApplication(sig_processed)
-    # while True:
-    #     if tracking_ready.get() == 1:
-    #         break
+    main_app = MainApplication(sig_processed)
+    while True:
+        if tracking_ready.get() == 1:
+            break
 
-    # main_app.run()  # This blocks execution``
+    main_app.run()  # This blocks execution``
 
-    start(sig_processed)
+    # start(sig_processed)
 
     raw_tracking.join()
     display('raw tracking has finished')

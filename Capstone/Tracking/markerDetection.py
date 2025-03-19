@@ -40,8 +40,8 @@ first_data = True
 
 MARKER_SIZE = 11.77
 # MARKER_SIZE = 50.8
-REFERENCE_RVEC = np.array([0.89350525,  2.36083362, -1.61624626])
-REFERENCE_TVEC = np.array([95.72448674,  55.98724688, 535.59185169])
+REFERENCE_RVEC = np.array([1.52209168,  1.51176698, -0.99686177])
+REFERENCE_TVEC = np.array([15.6743719 ,  36.92984975, 442.91794163])
 FPS = 30
 TIME_PER_FRAME = 1/FPS
 
@@ -383,6 +383,11 @@ def angle_between_rodrigues_2(vec1):
 
     yaw_rad = np.arctan2(x1[0], x1[1])
     yaw_deg = np.degrees(yaw_rad)
+
+    if yaw_deg > 0:
+        yaw_deg = 180 - yaw_deg
+    elif yaw_deg < 0:
+        yaw_deg = -180 - yaw_deg
 
     pitch_rad = np.arctan2(z1[1], z1[2])
     pitch_deg = np.degrees(pitch_rad)
