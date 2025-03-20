@@ -246,14 +246,39 @@ def dodecahedron_center_to_iv(rotation, translation):
 
     # Rotate by 97.2 degrees around the updated Y-axis
     local_y_axis = rotation[:, 1]
-    angle_rad = np.deg2rad(97.2)
+    angle_rad = np.deg2rad(106.4)
+    R_local_y, _ = cv2.Rodrigues(local_y_axis * angle_rad)
+    rotation = R_local_y @ rotation
+
+    # Rotate by 97.2 degrees around the updated Y-axis
+    local_x_axis = rotation[:, 0]
+    angle_rad = np.deg2rad(-3)
+    R_local_x, _ = cv2.Rodrigues(local_x_axis * angle_rad)
+    rotation = R_local_x @ rotation
+
+    
+
+    translation = translation + (57.35) * rotation[:, 2].reshape(3, 1)
+    translation = translation + (2) * rotation[:, 1].reshape(3, 1)
+
+    # Rotate by -8 degrees around updated Z-axis
+    local_z_axis = rotation[:, 2]
+    angle_rad = np.deg2rad(7.2)
+    R_local_z, _ = cv2.Rodrigues(local_z_axis * angle_rad)
+    rotation = R_local_z @ rotation  
+
+    # Rotate by -8 degrees around updated Z-axis
+    local_y_axis = rotation[:, 1]
+    angle_rad = np.deg2rad(-1.7)
     R_local_y, _ = cv2.Rodrigues(local_y_axis * angle_rad)
     rotation = R_local_y @ rotation  
+
+    translation = translation + (-115.74) * rotation[:, 0].reshape(3, 1)
 
     # Extract the final local Z-axis after transformations
     final_z_axis = rotation[:, 2]
 
-    # **Check if the transformed Z-axis is positive (wrong direction)**
+    # # **Check if the transformed Z-axis is positive (wrong direction)**
     if final_z_axis[2] > 0:
         print("Invalid pose: Z-axis is incorrectly positive.")
         return None, None

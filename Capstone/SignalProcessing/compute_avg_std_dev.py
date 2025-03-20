@@ -56,11 +56,11 @@ def compute_statistics_spatial(file_list):
 
 def get_mean_std_bounds():
     """Retrieve mean, upper, and lower bound trajectories based on spatial proximities."""
-    folder_path = "Capstone/SignalProcessing/expert_data/"
-    file_list = [f"{folder_path}filtered_data_{i}.txt" for i in range(1, 7)]
-    return compute_statistics_spatial(file_list)
+    folder_path = "Capstone/SignalProcessing/expert_data/middle/"
+    file_list = [f"{folder_path}filtered_data_{i}.txt" for i in range(1, 10)]
+    return compute_statistics_spatial(file_list), load_trajectories(file_list)
 
-def plot_trajectories(mean_traj, upper_bound, lower_bound):
+def plot_trajectories(mean_traj, upper_bound, lower_bound, trajectories):
     """Plots the mean trajectory along with scaled upper and lower standard deviation bounds."""
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
@@ -77,14 +77,18 @@ def plot_trajectories(mean_traj, upper_bound, lower_bound):
     ax.plot(x_upper, y_upper, z_upper, 'r--', linewidth=1, label=f"Upper Bound (+{STD_ACCEPTABLE}σ)")
     ax.plot(x_lower, y_lower, z_lower, 'b--', linewidth=1, label=f"Lower Bound (-{STD_ACCEPTABLE}σ)")
 
-    # # Load live trajectory (extract the first trajectory since it's a single file)
-    # live_trajectory = load_trajectories(["Capstone/Filter/filtered_data.txt"])[0]
+    # Load live trajectory (extract the first trajectory since it's a single file)
+    live_trajectory = load_trajectories(["Capstone/Filter/filtered_data.txt"])[0]
 
-    # # Remove NaN values (just in case)
-    # live_trajectory = np.nan_to_num(live_trajectory)
+    # Remove NaN values (just in case)
+    live_trajectory = np.nan_to_num(live_trajectory)
 
-    # # Plot live trajectory in green
-    # ax.plot(live_trajectory[:, 0], live_trajectory[:, 1], live_trajectory[:, 2], 'g-', linewidth=2, label="LIVE")
+    # Plot live trajectory in green
+    ax.plot(live_trajectory[:, 0], live_trajectory[:, 1], live_trajectory[:, 2], 'g-', linewidth=2, label="LIVE")
+
+    # Plot all individual trajectories
+    for i, traj in enumerate(trajectories):
+        ax.plot(traj[:, 0], traj[:, 1], traj[:, 2], alpha=0.5, label=f'Trajectory {i+1}')
 
     # Label axes
     ax.set_xlabel('X')
@@ -95,5 +99,5 @@ def plot_trajectories(mean_traj, upper_bound, lower_bound):
     plt.show()
 
 if __name__ == "__main__":
-    mean_traj, upper_bound, lower_bound = get_mean_std_bounds()
-    plot_trajectories(mean_traj, upper_bound, lower_bound)
+    (mean_traj, upper_bound, lower_bound), trajectories = get_mean_std_bounds()
+    plot_trajectories(mean_traj, upper_bound, lower_bound, trajectories)

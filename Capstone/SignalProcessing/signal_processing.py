@@ -101,7 +101,7 @@ def sig_processing(filtered_data_queue, sig_processed_queue):
     """
     global prev_idx
     prev_idx = None
-    mean_traj, upper_bound, lower_bound = get_mean_std_bounds()
+    (mean_traj, upper_bound, lower_bound), _ = get_mean_std_bounds()
 
     while True:
         filtered_data_entry = filtered_data_queue.get()

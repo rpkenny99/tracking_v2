@@ -178,7 +178,7 @@ def process_file_2(raw_data_queue,
     filtered_data_queue.put(None)
 
 
-def get_unique_filename(base_name="Capstone/SignalProcessing/expert_data/filtered_data", ext=".txt"):
+def get_unique_filename(base_name="Capstone/SignalProcessing/expert_data/middle/filtered_data", ext=".txt"):
     for i in count(1):
         filename = f"{base_name}_{i}{ext}"
         if not os.path.exists(filename):
@@ -203,11 +203,10 @@ def process_file_3(raw_data_queue,
     try:
         with open(output_file, 'w') as output:
             while True:
-                print("Pending\n")
                 if keyboard.is_pressed('space'):
                     collecting = True
                     print("Started collecting filtered data...")
-
+                
                 if keyboard.is_pressed('s') and collecting:
                     filename = get_unique_filename()
                     with open(filename, 'w') as save_file:
@@ -220,9 +219,11 @@ def process_file_3(raw_data_queue,
                     # Reset filtered data
                     filtered_data = {key: [] for key in ["x", "y", "z", "roll", "pitch", "yaw"]}
                 
+                # if raw_data_queue.empty():
+                #     continue
                 raw_data_entry = raw_data_queue.get()
+
                 if raw_data_entry is None:
-                    print("BREAKING")
                     break
                 
                 x0, y0, z0, roll0, pitch0, yaw0 = raw_data_entry

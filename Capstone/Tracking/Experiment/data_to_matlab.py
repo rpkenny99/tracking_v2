@@ -3,7 +3,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import pandas as pd
 
 # File path
-file_path = 'Capstone/SignalProcessing/expert_data/filtered_data_10.txt'
+file_path = 'Capstone/SignalProcessing/expert_data/middle/filtered_data_4.txt'
 # file_path = 'Capstone/Filter/filtered_data.txt'
 # file_path = 'Capstone/Tracking/data.txt'
 

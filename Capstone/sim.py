@@ -50,12 +50,12 @@ def main():
 
     # Run the PyQt GUI in the main thread
     
-    main_app = MainApplication(sig_processed)
-    while True:
-        if tracking_ready.get() == 1:
-            break
+    # main_app = MainApplication(sig_processed)
+    # while True:
+    #     if tracking_ready.get() == 1:
+    #         break
 
-    main_app.run()  # This blocks execution``
+    # main_app.run()  # This blocks execution``
 
     # start(sig_processed)
 
