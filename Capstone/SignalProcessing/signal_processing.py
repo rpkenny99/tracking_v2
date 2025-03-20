@@ -50,8 +50,8 @@ def find_nearest_mean_index(live_data, mean_traj, prev_idx, search_radius=100):
     return closest_idx
 
 # Define separate scaling factors for Pro vs. Amateur
-STD_PRO = 1
-STD_AMATEUR = 1.5
+STD_PRO = 1.8
+STD_AMATEUR = 2.5
 
 def is_within_bounds(live_data, mean_traj, upper_bound, lower_bound, window_size=10000):
     """
@@ -72,22 +72,57 @@ def is_within_bounds(live_data, mean_traj, upper_bound, lower_bound, window_size
     # Extract relevant section of the bounds
     mean_window = mean_traj[start_idx:end_idx]
 
-    # **Scale the standard deviation bounds separately for Pro & Amateur**
-    upper_pro = mean_window + (STD_PRO * (upper_bound[start_idx:end_idx] - mean_window))
-    lower_pro = mean_window - (STD_PRO * (mean_window - lower_bound[start_idx:end_idx]))
+    live_data = np.array(live_data)
 
-    upper_amateur = mean_window + (STD_AMATEUR * (upper_bound[start_idx:end_idx] - mean_window))
-    lower_amateur = mean_window - (STD_AMATEUR * (mean_window - lower_bound[start_idx:end_idx]))
+    # Slice only the first 3 entries
+    live_data = live_data[:3]  # Ensuring it's (N, 3)
 
-    # **Check if live data is within the Pro range**
-    within_upper_pro = np.any(live_data <= upper_pro, axis=0)
-    within_lower_pro = np.any(live_data >= lower_pro, axis=0)
-    within_pro = np.all(within_upper_pro & within_lower_pro)
+    # Ensure upper_bound and lower_bound are NumPy arrays
+    upper_bound = np.array(upper_bound)
+    lower_bound = np.array(lower_bound)
 
-    # **Check if live data is within the Amateur range**
-    within_upper_amateur = np.any(live_data <= upper_amateur, axis=0)
-    within_lower_amateur = np.any(live_data >= lower_amateur, axis=0)
-    within_amateur = np.all(within_upper_amateur & within_lower_amateur)
+    # Ensure upper_bound and lower_bound are properly shaped
+    upper_bound = upper_bound[start_idx:end_idx, :3]  # Extract first three entries
+    lower_bound = lower_bound[start_idx:end_idx, :3]  # Extract first three entries
+
+    # Scale the standard deviation bounds separately for Pro & Amateur (only for first three entries)
+    upper_pro = mean_window[:, :3] + (STD_PRO * (upper_bound - mean_window[:, :3]))
+    lower_pro = mean_window[:, :3] - (STD_PRO * (mean_window[:, :3] - lower_bound))
+
+    upper_amateur = mean_window[:, :3] + (STD_AMATEUR * (upper_bound - mean_window[:, :3]))
+    lower_amateur = mean_window[:, :3] - (STD_AMATEUR * (mean_window[:, :3] - lower_bound))
+
+    print(f"{upper_pro.shape=}, {lower_pro.shape=}, {live_data.shape=}")
+
+    # Check if live data is within the Pro range
+    within_upper_pro = False
+    within_lower_pro = False
+    for i, entry in enumerate(upper_pro):
+        if np.all(live_data < entry):
+            within_upper_pro = True
+            if np.all(live_data > lower_pro[i]):
+                within_lower_pro = True
+                break
+            else:
+                within_lower_pro = False
+        else:
+            within_upper_pro = False
+    within_pro = (within_upper_pro & within_lower_pro)
+
+    # Check if live data is within the Pro range
+    within_upper_amateur = False
+    within_lower_amateur = False
+    for i, entry in enumerate(upper_amateur):
+        if np.all(live_data < entry):
+            within_upper_amateur = True
+            if np.all(live_data > lower_amateur[i]):
+                within_lower_amateur = True
+                break
+            else:
+                within_lower_amateur = False
+        else:
+            within_upper_amateur = False
+    within_amateur = (within_upper_amateur & within_lower_amateur)
 
     prev_idx = curr_idx
 

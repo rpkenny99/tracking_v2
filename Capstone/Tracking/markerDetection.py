@@ -40,8 +40,8 @@ first_data = True
 
 MARKER_SIZE = 11.77
 # MARKER_SIZE = 50.8
-REFERENCE_RVEC = np.array([1.75321462,  1.52019308, -0.85823691])
-REFERENCE_TVEC = np.array([-4.45862185,  -3.28556573, 101.90621298])
+REFERENCE_RVEC = np.array([1.78278142,  1.61321357, -0.87660487])
+REFERENCE_TVEC = np.array([21.28829506, -38.25557444, 465.88498356])
 FPS = 30
 TIME_PER_FRAME = 1/FPS
 
@@ -442,10 +442,12 @@ def ProcessFrame_2(frame, file):
         rVec, tVec, _ = aruco.estimatePoseSingleMarkers(
             markerCorners, MARKER_SIZE, cam_mat, dist_coef
         )
-        for i, id in enumerate(markerIds):
-            # cv2.drawFrameAxes(frame, cam_mat, dist_coef, rVec[i], tVec[i], 4, 4)
-            # print(f"{id=}: {rVec[i]=}, {tVec[i]=}")
-            break
+        # for i, id in enumerate(markerIds):
+        #     cv2.drawFrameAxes(frame, cam_mat, dist_coef, rVec[i], tVec[i], 4, 4)
+
+        #     rotation, translation = transform_to_world(rVec[i], tVec[i])
+        #     print(f"{id=}: {rotation=}, {translation=}")
+        #     print(f"{id=}: {rVec[i]=}, {tVec[i]=}")
 
         success, rotation, translation = aruco.estimatePoseBoard(
             markerCorners, markerIds, board, cam_mat, dist_coef, r_vectors, t_vectors

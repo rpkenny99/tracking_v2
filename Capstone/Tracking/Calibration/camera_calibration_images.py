@@ -25,7 +25,7 @@ charuco_board = aruco.CharucoBoard(
 # Setup image saving directory
 # --------------------------
 n = 0  # image counter
-image_dir_path = r"Capstone/Tracking/Calibration/90FOV/images"
+image_dir_path = r"Capstone/Tracking/Calibration/60FOV/images"
 
 if not os.path.isdir(image_dir_path):
     os.makedirs(image_dir_path)

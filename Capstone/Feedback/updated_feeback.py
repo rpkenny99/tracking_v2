@@ -11,6 +11,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from queue import Queue
 
 class IntroScreen(QDialog):
     """Introductory screen to start the simulation."""
@@ -57,7 +58,7 @@ class PickVeinScreen(QDialog):
 
         # Arm Image
         self.arm_image_label = QLabel(self)
-        self.pixmap = QPixmap("redv3in.png")
+        self.pixmap = QPixmap("Capstone/Feedback/redv3in.png")
 
         # Adjust the image size here by changing the width and height values
         self.image_width = 950  # Set your desired width in pixels
@@ -119,12 +120,12 @@ class PickInsertionPointScreen(QDialog):
         
         # Load the appropriate image based on the selected vein
         if self.selected_vein == "Left Vein":
-            self.pixmap = QPixmap("leftvein-removebg-preview.png")
+            self.pixmap = QPixmap("Capstone/Feedback/leftvein-removebg-preview.png")
         elif self.selected_vein == "Right Vein":
-            self.pixmap = QPixmap("rightvein-removebg-preview.png")
+            self.pixmap = QPixmap("Capstone/Feedback/rightvein-removebg-preview.png")
         else:
             # Default image if no vein is selected (optional)
-            self.pixmap = QPixmap("default_image.png")
+            self.pixmap = QPixmap("Capstone/Feedback/default_image.png")
 
         self.arm_image_label.setPixmap(self.pixmap.scaled(950, 450, Qt.AspectRatioMode.KeepAspectRatio))
         self.arm_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -162,9 +163,8 @@ class PickInsertionPointScreen(QDialog):
         self.selected_point = "Point C"
         self.accept()
 
-
 class FeedbackUI(QMainWindow):
-    def __init__(self, selected_vein, selected_point, update_interval=1000):
+    def __init__(self, selected_vein, selected_point, max_updates=12, update_interval=10, work_queue=None):
         super().__init__()
         self.setWindowTitle("Feedback UI - Needle Insertion")
         self.showFullScreen()  # Make the window maximized
@@ -172,6 +172,7 @@ class FeedbackUI(QMainWindow):
         # Store the selected vein and insertion point
         self.selected_vein = selected_vein
         self.selected_point = selected_point
+        self.work_queue = work_queue
 
         # Debug statements
         print(f"FeedbackUI - Selected Vein: {self.selected_vein}")
@@ -185,11 +186,12 @@ class FeedbackUI(QMainWindow):
 
         self.sessionLog = []
         self.update_count = 0
+        self.max_updates = max_updates
         self.total_angle_deviation = 0  # To accumulate angle deviation
         self.total_depth_deviation = 0  # To accumulate depth deviation
 
         # Initialize the pixmap attribute with a default image
-        self.pixmap = QPixmap("default_image.png")  # Ensure this image exists
+        self.pixmap = QPixmap("Capstone/Feedback/default_image.png")  # Ensure this image exists
 
         self._createDisplay()
 
@@ -258,21 +260,21 @@ class FeedbackUI(QMainWindow):
         # Load the appropriate image based on the selected vein and insertion point
         if self.selected_vein == "Left Vein":
             if self.selected_point == "Point A":
-                self.pixmap = QPixmap("0007.png")
+                self.pixmap = QPixmap("Capstone/Feedback/0007.png")
             elif self.selected_point == "Point B":
-                self.pixmap = QPixmap("middleleftvein-removebg-preview.png")
+                self.pixmap = QPixmap("Capstone/Feedback/middleleftvein-removebg-preview.png")
             elif self.selected_point == "Point C":
-                self.pixmap = QPixmap("bottomleftvein-removebg-preview.png")
+                self.pixmap = QPixmap("Capstone/Feedback/bottomleftvein-removebg-preview.png")
         elif self.selected_vein == "Right Vein":
             if self.selected_point == "Point A":
-                self.pixmap = QPixmap("toprightvein-removebg-preview.png")
+                self.pixmap = QPixmap("Capstone/Feedback/toprightvein-removebg-preview.png")
             elif self.selected_point == "Point B":
-                self.pixmap = QPixmap("middlerightvein-removebg-preview.png")
+                self.pixmap = QPixmap("Capstone/Feedback/middlerightvein-removebg-preview.png")
             elif self.selected_point == "Point C":
-                self.pixmap = QPixmap("bottomrightvein-removebg-preview.png")
+                self.pixmap = QPixmap("Capstone/Feedback/bottomrightvein-removebg-preview.png")
         else:
             # Default image if no vein or point is selected (optional)
-            self.pixmap = QPixmap("default_image.png")
+            self.pixmap = QPixmap("Capstone/Feedback/default_image.png")
 
         # Debug statement to confirm the image path
         print(f"Loading image: {self.pixmap}")
@@ -280,7 +282,7 @@ class FeedbackUI(QMainWindow):
         # Ensure the pixmap is loaded successfully
         if self.pixmap.isNull():
             print(f"Error: Failed to load image for vein={self.selected_vein}, point={self.selected_point}")
-            self.pixmap = QPixmap("default_image.png")  # Fallback to default image
+            self.pixmap = QPixmap("Capstone/Feedback/default_image.png")  # Fallback to default image
 
         self.arm_image_label.setPixmap(self.pixmap.scaled(335, 475))
         self.arm_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -290,22 +292,22 @@ class FeedbackUI(QMainWindow):
 
         # Directional arrows (GIFs)
         self.arrow_up = QLabel(self.arm_image_label)
-        self.arrow_up_movie = QMovie("arrow-1153-256-mainup-1-unscreen")
+        self.arrow_up_movie = QMovie("Capstone/Feedback/arrow-1153-256-mainup-1-unscreen")
         self.arrow_up.setMovie(self.arrow_up_movie)
         self.arrow_up.setVisible(False)
 
         self.arrow_down = QLabel(self.arm_image_label)
-        self.arrow_down_movie = QMovie("arrow-1153_256(maindown).gif")
+        self.arrow_down_movie = QMovie("Capstone/Feedback/arrow-1153_256(maindown).gif")
         self.arrow_down.setMovie(self.arrow_down_movie)
         self.arrow_down.setVisible(False)
 
         self.arrow_left = QLabel(self.arm_image_label)
-        self.arrow_left_movie = QMovie("arrow-358_256(mainleft).gif")
+        self.arrow_left_movie = QMovie("Capstone/Feedback/arrow-358_256(mainleft).gif")
         self.arrow_left.setMovie(self.arrow_left_movie)
         self.arrow_left.setVisible(False)
 
         self.arrow_right = QLabel(self.arm_image_label)
-        self.arrow_right_movie = QMovie("arrow-358-256-mainright--unscreen")
+        self.arrow_right_movie = QMovie("Capstone/Feedback/arrow-358-256-mainright--unscreen")
         self.arrow_right.setMovie(self.arrow_right_movie)
         self.arrow_right.setVisible(False)
 
@@ -349,9 +351,9 @@ class FeedbackUI(QMainWindow):
         self.restartButton.clicked.connect(self._restartSimulation)
         buttonLayout.addWidget(self.restartButton)
 
-        self.endSimulationButton = QPushButton("End Simulation")
-        self.endSimulationButton.clicked.connect(self._endSimulation)
-        buttonLayout.addWidget(self.endSimulationButton)
+        self.logButton = QPushButton("Log Data")
+        self.logButton.clicked.connect(self._logSessionData)
+        buttonLayout.addWidget(self.logButton)
 
         rightLayout.addLayout(buttonLayout)
 
@@ -366,9 +368,7 @@ class FeedbackUI(QMainWindow):
         """Update the second circle indicator with the current angle and color."""
         target_angle = float(self.targetAngle.text())
         deviation = abs(angle - target_angle)
-        #color = QColor("blue") if deviation <= 1.5 else QColor("orange")  # Use different colors for distinction
-        color = QColor("green") if deviation <= 1.5 else QColor("orange") if deviation < 2.5 else QColor("red")
-
+        color = QColor("blue") if deviation <= 1.5 else QColor("orange")  # Use different colors for distinction
 
         # Create a pixmap to draw the circle
         pixmap = QPixmap(self.circleIndicator2.size())
@@ -429,7 +429,7 @@ class FeedbackUI(QMainWindow):
         self.ax.zaxis.line.set_alpha(0)
 
         # Load and plot left vein
-        left_vein_file = "leftveinvein2_smoothed4.xlsx"
+        left_vein_file = "Capstone/Feedback/leftveinvein2_smoothed4.xlsx"
         left_data = pd.read_excel(left_vein_file)
         Tx_left, Ty_left, Tz_left = left_data['Tx'].to_numpy(), left_data['Ty'].to_numpy(), left_data['Tz'].to_numpy()
         threshold = -1e10
@@ -445,13 +445,12 @@ class FeedbackUI(QMainWindow):
         self.ax.plot(points_left[:, 0], points_left[:, 1], points_left[:, 2], 'b', label="Left Vein")
 
         # Load and plot right vein
-        right_vein_file = "rightvein2.xlsx"         
-
+        right_vein_file = "Capstone/Feedback/rightvein2.xlsx"
         right_data = pd.read_excel(right_vein_file)
         Tx_right, Ty_right, Tz_right = right_data['Tx'].to_numpy(), right_data['Ty'].to_numpy(), right_data['Tz'].to_numpy()
         valid_indices_right = (Tx_right > threshold) & (Ty_right > threshold) & (Tz_right > threshold)
         Tx_right, Ty_right, Tz_right = Tx_right[valid_indices_right], Ty_right[valid_indices_right], Tz_right[valid_indices_right]
-        
+
         # Scale the Tx, Ty, and Tz values by 2 to stretch the veins along all axes
         Tx_right = Tx_right * 2
         Ty_right = Ty_right * 2
@@ -544,8 +543,7 @@ class FeedbackUI(QMainWindow):
         """Update the circle indicator with the current angle and color."""
         target_angle = float(self.targetAngle.text())
         deviation = abs(angle - target_angle)
-        #color = QColor("green") if deviation <= 1.5 else QColor("red")
-        color = QColor("green") if deviation <= 1.5 else QColor("orange") if deviation < 2.5 else QColor("red")
+        color = QColor("green") if deviation <= 1.5 else QColor("red")
 
         # Create a pixmap to draw the circle
         pixmap = QPixmap(self.circleIndicator.size())
@@ -569,31 +567,38 @@ class FeedbackUI(QMainWindow):
 
     def _updateData(self):
         """Simulate data updates and display feedback for needle guidance."""
-        # Simulate new data
-        simulated_position = f"({uniform(-5, 5):.2f}, {uniform(-5, 5):.2f}, {uniform(-5, 5):.2f})"
-        simulated_angle = uniform(25, 35)
-        simulated_depth = uniform(40, 51)
+        if not self.work_queue.empty():
+            data = self.work_queue.get()
+            if data is None:
+                self.timer.stop()
+                self.promptsLog.append("Simulation complete.")
+                self._showSummaryPage()
+                return
+        else:
+            return
+        
+        x, y, z, pitch, roll, yaw = data
 
-        # Update the UI with the new data
+        simulated_position = f"({x:.2f}, {y:.2f}, {z:.2f})"
+        simulated_elevation = pitch
+        simulated_angle_of_insertion = yaw
+
         self.positionInput.setText(simulated_position)
-        self.angleInput.setText(f"{simulated_angle:.2f}")
-        self.depthInput.setText(f"{simulated_depth:.2f}")
+        self.angleInput.setText(f"{simulated_elevation:.2f}")
+        self.depthInput.setText(f"{simulated_angle_of_insertion:.2f}")
 
-        # Generate feedback based on the new data
-        feedback = self._generateFeedback(simulated_position, simulated_angle, simulated_depth)
+        feedback = self._generateFeedback(simulated_position, simulated_angle_of_insertion, simulated_elevation)
         self.promptsLog.append(f"Update {self.update_count + 1}: {feedback}")
 
-        # Calculate deviations from the target
         target_angle = float(self.targetAngle.text())
         target_depth = float(self.targetDepth.text())
-        self.total_angle_deviation += abs(simulated_angle - target_angle)
-        self.total_depth_deviation += abs(simulated_depth - target_depth)
+        self.total_angle_deviation += abs(simulated_elevation - target_angle)
+        self.total_depth_deviation += abs(simulated_angle_of_insertion - target_depth)
 
-        # Update the circle indicators
-        self._updateCircleIndicator(simulated_angle)
-        self._updateCircleIndicator2(simulated_angle)
+        # Update the circle indicator
+        self._updateCircleIndicator(simulated_angle_of_insertion)
+        self._updateCircleIndicator2(simulated_elevation)
 
-        # Increment the update count
         self.update_count += 1
 
     def _setArrowVisibility(self, direction, is_visible):
@@ -669,22 +674,17 @@ class FeedbackUI(QMainWindow):
         with open("session_log.txt", "a") as file:
             file.write(session_data)
 
-    def _endSimulation(self):
-        """End the simulation and show the summary page."""
-        self.timer.stop()
-        self._showSummaryPage()
-
     def _showSummaryPage(self):
         """Display the summary of the simulation."""
-        angle_error = self.total_angle_deviation / (self.update_count if self.update_count > 0 else 1)
-        depth_error = self.total_depth_deviation / (self.update_count if self.update_count > 0 else 1)
+        angle_error = self.total_angle_deviation / self.max_updates
+        depth_error = self.total_depth_deviation / self.max_updates
 
         score = max(0, 10 - (angle_error + depth_error) / 10)
         score = round(score, 2)
 
         if score == 10:
             feedback = ("Excellent performance! Your actions demonstrate a high level of accuracy and precision." 
-                    "Maintain this level of focus and attention to detail in future tasks. Great job!")
+                       "Maintain this level of focus and attention to detail in future tasks. Great job!")
         elif score >= 7:
             feedback = ("Good performance! You show a solid understanding of the task, but there are occasional minor errors."
                         "To improve further, double-check your movements or decisions to ensure consistency. " 
@@ -709,38 +709,17 @@ class FeedbackUI(QMainWindow):
         dialog_layout.addWidget(QLabel(f"Final Score: {score}/10"))
         dialog_layout.addWidget(QLabel(feedback))
 
-        # Button to return to the IntroScreen
-        returnToIntroButton = QPushButton("Return to Start")
-        returnToIntroButton.clicked.connect(lambda: self._returnToIntroScreen(dialog))
-        dialog_layout.addWidget(returnToIntroButton)
+        close_button = QPushButton("Close")
+        close_button.clicked.connect(dialog.accept)
+        dialog_layout.addWidget(close_button)
 
         dialog.setLayout(dialog_layout)
         dialog.exec()
 
-    def _returnToIntroScreen(self, dialog):
-        """Return to the IntroScreen and restart the application flow."""
-        dialog.close()  # Close the summary dialog
-        self.close()    # Close the FeedbackUI window
-
-        # Re-launch the intro screen
-        intro_screen = IntroScreen()
-        if intro_screen.exec() == QDialog.DialogCode.Accepted:
-            vein_screen = PickVeinScreen()
-            if vein_screen.exec() == QDialog.DialogCode.Accepted:
-                selected_vein = vein_screen.selected_vein
-
-                insertion_point_screen = PickInsertionPointScreen(selected_vein)
-                if insertion_point_screen.exec() == QDialog.DialogCode.Accepted:
-                    selected_insertion_point = insertion_point_screen.selected_point
-
-                    # Relaunch Feedback UI
-                    self.feedback_ui = FeedbackUI(selected_vein, selected_insertion_point)
-                    self.feedback_ui.show()
-
-
 class MainApplication:
     """Manages the flow of the application."""
-    def __init__(self):
+    def __init__(self, sig_processed_queue):
+        self.sig_processed_queue = sig_processed_queue
         self.app = QApplication(sys.argv)
         self.selected_vein = None
         self.selected_insertion_point = None
@@ -762,11 +741,11 @@ class MainApplication:
                     print(f"Selected Insertion Point: {self.selected_insertion_point}")  # Debug statement
 
                     # Launch Feedback UI with selected vein and insertion point
-                    feedback_ui = FeedbackUI(self.selected_vein, self.selected_insertion_point)
+                    feedback_ui = FeedbackUI(self.selected_vein, self.selected_insertion_point, work_queue=self.sig_processed_queue)
                     feedback_ui.show()
-                    self.app.exec()  # Run the application event loop without exiting
-
+                    sys.exit(self.app.exec())
 
 if __name__ == "__main__":
-    main_app = MainApplication()
+    sig_processed = Queue()
+    main_app = MainApplication(sig_processed)
     main_app.run()
