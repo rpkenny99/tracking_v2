@@ -203,6 +203,7 @@ def process_file_3(raw_data_queue,
     try:
         with open(output_file, 'w') as output:
             while True:
+                print("Pending\n")
                 if keyboard.is_pressed('space'):
                     collecting = True
                     print("Started collecting filtered data...")
@@ -221,6 +222,7 @@ def process_file_3(raw_data_queue,
                 
                 raw_data_entry = raw_data_queue.get()
                 if raw_data_entry is None:
+                    print("BREAKING")
                     break
                 
                 x0, y0, z0, roll0, pitch0, yaw0 = raw_data_entry
