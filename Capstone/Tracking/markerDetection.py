@@ -12,12 +12,14 @@ import pandas as pd
 import itertools
 from collections import deque
 
+no_origin = False
+
 # Initialize global queue for velocity tracking
 velocity_history = deque(maxlen=7)  # Stores last 7 translational velocities
 
 markerDict = aruco.getPredefinedDictionary(aruco.DICT_6X6_100)
 paramMarkers = aruco.DetectorParameters()
-calib_data_path = r"Capstone/Tracking/Calibration/60FOV/calib_data/MultiMatrix.npz"
+calib_data_path = r"Capstone/Tracking/Calibration/60FOV/calib_data copy/MultiMatrix.npz"
 calib_data = np.load(calib_data_path)
 
 cam_mat = calib_data["camMatrix"]
@@ -39,11 +41,14 @@ length_of_rod = 52.72
 first_data = True
 
 MARKER_SIZE = 11.77
-# MARKER_SIZE = 50.8
-REFERENCE_RVEC = np.array([1.78278142,  1.61321357, -0.87660487])
-REFERENCE_TVEC = np.array([21.28829506, -38.25557444, 465.88498356])
+MARKER_SIZE_ORIGIN = 50.8
+REFERENCE_RVEC = np.array([1.67711633,  1.37191476, -0.99752945])
+REFERENCE_TVEC = np.array([-21.77837191,  33.11065897, 513.24550449])
 FPS = 30
 TIME_PER_FRAME = 1/FPS
+
+reference_rvec = None
+reference_tvec = None
 
 unwrap_buffers = {
     "pitch": deque(maxlen=5),
@@ -429,6 +434,9 @@ def ProcessFrame_2(frame, file):
     global paramMarkers
     global rotation_prev
     global translation_prev
+    global no_origin
+    global reference_rvec
+    global reference_tvec
 
     grayFrame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -439,76 +447,92 @@ def ProcessFrame_2(frame, file):
     x_val, y_val, z_val, pitch, roll, yaw = None, None, None, None, None, None
 
     if markerIds is not None:
-        rVec, tVec, _ = aruco.estimatePoseSingleMarkers(
-            markerCorners, MARKER_SIZE, cam_mat, dist_coef
-        )
-        # for i, id in enumerate(markerIds):
-        #     cv2.drawFrameAxes(frame, cam_mat, dist_coef, rVec[i], tVec[i], 4, 4)
+        # if 33 in markerIds and no_origin:
+        #     index_33 = np.argmax(markerIds == 33)
+        #     reference_rvec, reference_tvec, _ = aruco.estimatePoseSingleMarkers(
+        #         markerCorners[index_33], MARKER_SIZE_ORIGIN, cam_mat, dist_coef
+        #     )
+        #     checking_rvec, _ = cv2.Rodrigues(reference_rvec)
+        #     if checking_rvec[:, 2][1] > 0:
+        #         no_origin = True
+        #     else:
+        #         no_origin = False
+        #         print(f"Got Origin with {reference_rvec=}, {reference_tvec=}")
+        if 33 in markerIds:
+            rVec, tVec, _ = aruco.estimatePoseSingleMarkers(
+                markerCorners, MARKER_SIZE_ORIGIN, cam_mat, dist_coef
+            )
+            for i, id in enumerate(markerIds):
+                cv2.drawFrameAxes(frame, cam_mat, dist_coef, rVec[i], tVec[i], 4, 4)
 
-        #     rotation, translation = transform_to_world(rVec[i], tVec[i])
-        #     print(f"{id=}: {rotation=}, {translation=}")
-        #     print(f"{id=}: {rVec[i]=}, {tVec[i]=}")
+            #     rotation, translation = transform_to_world(rVec[i], tVec[i])
+            #     print(f"{id=}: {rotation=}, {translation=}")
+                print(f"{id=}: {rVec[i]=}, {tVec[i]=}")
 
-        success, rotation, translation = aruco.estimatePoseBoard(
-            markerCorners, markerIds, board, cam_mat, dist_coef, r_vectors, t_vectors
-        )
+        if no_origin:
+            return frame, [None, None, None, None, None, None]
+        else:
+            success, rotation, translation = aruco.estimatePoseBoard(
+                markerCorners, markerIds, board, cam_mat, dist_coef, r_vectors, t_vectors
+            )
 
-        if success:
-            frame = aruco.drawDetectedMarkers(frame, markerCorners, markerIds)
+            if success and not no_origin:
+                frame = aruco.drawDetectedMarkers(frame, markerCorners, markerIds)
 
-            if translation[2][0] < 0:
-                translation[0][0] *= -1
-                translation[1][0] *= -1
-                translation[2][0] *= -1
+                if translation[2][0] < 0:
+                    translation[0][0] *= -1
+                    translation[1][0] *= -1
+                    translation[2][0] *= -1
 
-            cv2.drawFrameAxes(frame, cam_mat, dist_coef, rotation, translation, 7, 4)
+                cv2.drawFrameAxes(frame, cam_mat, dist_coef, rotation, translation, 7, 4)
 
-            rotation, translation = transform_to_world(rotation, translation)
+                rotation, translation = transform_to_world(rotation, translation)
 
-            rotation, translation = dodecahedron_center_to_iv(rotation, translation)
+                rotation, translation = dodecahedron_center_to_iv(rotation, translation)
+                # print(f"{translation=}")
 
-            if rotation is None and translation is None:
-                return frame, [None, None, None, None, None, None]
+                if rotation is None and translation is None:
+                    return frame, [None, None, None, None, None, None]
 
-            _, _, fault = compute_velocity(rotation, translation, TIME_PER_FRAME)
+                _, _, fault = compute_velocity(rotation, translation, TIME_PER_FRAME)
 
-            if fault and rotation_prev is not None and translation_prev is not None:
-                return frame, [None, None, None, None, None, None]
+                if fault and rotation_prev is not None and translation_prev is not None:
+                    return frame, [None, None, None, None, None, None]
 
-            rotation_prev = rotation
-            translation_prev = translation
+                rotation_prev = rotation
+                translation_prev = translation
 
-            # Extract translation
-            x_val = translation[0][0]
-            y_val = translation[1][0]
-            z_val = translation[2][0]
+                # Extract translation
+                x_val = translation[0][0]
+                y_val = translation[1][0]
+                z_val = translation[2][0]
 
-            # Extract rotation angles (assuming rotation is in Rodrigues form)
-            pitch_val = rotation[0][0]
-            roll_val = rotation[1][0]
-            yaw_val = rotation[2][0]
+                # Extract rotation angles (assuming rotation is in Rodrigues form)
+                pitch_val = rotation[0][0]
+                roll_val = rotation[1][0]
+                yaw_val = rotation[2][0]
 
-            yaw, pitch, roll = angle_between_rodrigues_2(np.array([pitch_val, roll_val, yaw_val]))
+                yaw, pitch, roll = angle_between_rodrigues_2(np.array([pitch_val, roll_val, yaw_val]))
 
-            if pitch < 0:
-                pitch = -(180 + pitch)
-            else:
-                pitch = 180 - pitch
+                if pitch < 0:
+                    pitch = -(180 + pitch)
+                else:
+                    pitch = 180 - pitch
 
-            # Store values in rolling unwrap buffers
-            unwrap_buffers["pitch"].append(pitch)
-            unwrap_buffers["roll"].append(roll)
-            unwrap_buffers["yaw"].append(yaw)
+                # Store values in rolling unwrap buffers
+                unwrap_buffers["pitch"].append(pitch)
+                unwrap_buffers["roll"].append(roll)
+                unwrap_buffers["yaw"].append(yaw)
 
-            # Apply np.unwrap when enough data is available
-            if len(unwrap_buffers["pitch"]) == 5:
-                pitch = np.degrees(np.unwrap(np.radians(unwrap_buffers["pitch"]), discont=np.radians(60)))[-1]
-                roll = np.degrees(np.unwrap(np.radians(unwrap_buffers["roll"]), discont=np.radians(60)))[-1]
-                yaw = np.degrees(np.unwrap(np.radians(unwrap_buffers["yaw"]), discont=np.radians(60)))[-1]
+                # Apply np.unwrap when enough data is available
+                if len(unwrap_buffers["pitch"]) == 5:
+                    pitch = np.degrees(np.unwrap(np.radians(unwrap_buffers["pitch"]), discont=np.radians(60)))[-1]
+                    roll = np.degrees(np.unwrap(np.radians(unwrap_buffers["roll"]), discont=np.radians(60)))[-1]
+                    yaw = np.degrees(np.unwrap(np.radians(unwrap_buffers["yaw"]), discont=np.radians(60)))[-1]
 
-            # Write to text file
-            result_string = f"{x_val} {y_val} {z_val} {pitch} {roll} {yaw}"
-            file.write(result_string + "\n")
+                # Write to text file
+                result_string = f"{x_val} {y_val} {z_val} {pitch} {roll} {yaw}"
+                file.write(result_string + "\n")
 
     return frame, [x_val, y_val, z_val, pitch, roll, yaw]
 

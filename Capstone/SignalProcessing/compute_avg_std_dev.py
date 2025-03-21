@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial import cKDTree
+import glob
 
 # Define standard deviation threshold for acceptable range
 STD_ACCEPTABLE = 1
@@ -56,8 +57,9 @@ def compute_statistics_spatial(file_list):
 
 def get_mean_std_bounds():
     """Retrieve mean, upper, and lower bound trajectories based on spatial proximities."""
-    folder_path = "Capstone/SignalProcessing/expert_data/middle/"
-    file_list = [f"{folder_path}filtered_data_{i}.txt" for i in range(1, 10)]
+    folder_path = "Capstone/SignalProcessing/expert_data/left-vein/middle/"
+    file_list = sorted(glob.glob(f"{folder_path}filtered_data_*.txt"))
+    print(f"{file_list=}")
     return compute_statistics_spatial(file_list), load_trajectories(file_list)
 
 def plot_trajectories(mean_traj, upper_bound, lower_bound, trajectories):

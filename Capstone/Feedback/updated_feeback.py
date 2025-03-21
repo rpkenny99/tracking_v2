@@ -718,8 +718,9 @@ class FeedbackUI(QMainWindow):
 
 class MainApplication:
     """Manages the flow of the application."""
-    def __init__(self, sig_processed_queue):
+    def __init__(self, sig_processed_queue, app_to_signal_processing):
         self.sig_processed_queue = sig_processed_queue
+        self.app_to_signal_processing = app_to_signal_processing
         self.app = QApplication(sys.argv)
         self.selected_vein = None
         self.selected_insertion_point = None
@@ -728,17 +729,23 @@ class MainApplication:
         # Intro Screen
         intro_screen = IntroScreen()
         if intro_screen.exec() == QDialog.DialogCode.Accepted:
+            self.app_to_signal_processing.put([1, None, None])
             # Pick Vein Screen
             vein_screen = PickVeinScreen()
             if vein_screen.exec() == QDialog.DialogCode.Accepted:
                 self.selected_vein = vein_screen.selected_vein
                 print(f"Selected Vein: {self.selected_vein}")  # Debug statement
 
+                self.app_to_signal_processing.put([1, self.selected_vein, None])
+                
+
                 # Pick Insertion Point Screen
                 insertion_point_screen = PickInsertionPointScreen(self.selected_vein)
                 if insertion_point_screen.exec() == QDialog.DialogCode.Accepted:
                     self.selected_insertion_point = insertion_point_screen.selected_point
                     print(f"Selected Insertion Point: {self.selected_insertion_point}")  # Debug statement
+
+                    self.app_to_signal_processing.put([1, self.selected_vein, self.selected_insertion_point])
 
                     # Launch Feedback UI with selected vein and insertion point
                     feedback_ui = FeedbackUI(self.selected_vein, self.selected_insertion_point, work_queue=self.sig_processed_queue)

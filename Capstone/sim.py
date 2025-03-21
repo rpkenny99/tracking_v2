@@ -34,15 +34,18 @@ def perform_work(work):
         # Otherwise, process item
         display(f"Consumed: {item}")
 
+
+
 def main():
     raw = Queue()
     filtered = Queue()
     tracking_ready = Queue()
     sig_processed = Queue()
+    app_to_signal_processing = Queue() # Sim_run, vein, location
 
     raw_tracking = Thread(target=startTracking, args=[raw, tracking_ready], daemon=True)
     filter = Thread(target=process_file_2, args=[raw, filtered], daemon=True)
-    signal_processing = Thread(target=sig_processing, args=[filtered, sig_processed], daemon=True)
+    signal_processing = Thread(target=sig_processing, args=[filtered, sig_processed, app_to_signal_processing], daemon=True)
 
     raw_tracking.start()
     filter.start()
@@ -50,12 +53,12 @@ def main():
 
     # Run the PyQt GUI in the main thread
     
-    # main_app = MainApplication(sig_processed)
-    # while True:
-    #     if tracking_ready.get() == 1:
-    #         break
+    main_app = MainApplication(sig_processed, app_to_signal_processing)
+    while True:
+        if tracking_ready.get() == 1:
+            break
 
-    # main_app.run()  # This blocks execution``
+    main_app.run()  # This blocks execution``
 
     # start(sig_processed)
 
