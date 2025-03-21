@@ -157,7 +157,7 @@ def get_average_insertion_and_elevation_angles(vein, location):
             fp = r"Capstone/SignalProcessing/expert_data/left-vein/middle/angle_stats.txt"
             return load_angle_stats(fp)
 
-def sig_processing(filtered_data_queue, sig_processed_queue, app_to_signal_processing):
+def sig_processing(filtered_data_queue, sig_processed_queue, app_to_signal_processing, angle_range_queue):
     """
     Receives live trajectory data, finds the closest mean trajectory point, and 
     checks if it's within the standard deviation bounds.
@@ -193,6 +193,8 @@ def sig_processing(filtered_data_queue, sig_processed_queue, app_to_signal_proce
             else:
                 feedback_started = True
                 expert_pitch, expert_roll, expert_yaw, expert_pitch_std, expert_roll_std, expert_yaw_std = get_average_insertion_and_elevation_angles(vein, location)
+                angle_range_queue.put([expert_pitch, expert_roll, expert_yaw, expert_pitch_std, expert_roll_std, expert_yaw_std])
+
                 print(f"{expert_pitch=}")
 
         

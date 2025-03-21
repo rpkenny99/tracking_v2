@@ -42,10 +42,11 @@ def main():
     tracking_ready = Queue()
     sig_processed = Queue()
     app_to_signal_processing = Queue() # Sim_run, vein, location
+    angle_range_queue = Queue()
 
     raw_tracking = Thread(target=startTracking, args=[raw, tracking_ready], daemon=True)
     filter = Thread(target=process_file_2, args=[raw, filtered], daemon=True)
-    signal_processing = Thread(target=sig_processing, args=[filtered, sig_processed, app_to_signal_processing], daemon=True)
+    signal_processing = Thread(target=sig_processing, args=[filtered, sig_processed, app_to_signal_processing, angle_range_queue], daemon=True)
 
     raw_tracking.start()
     filter.start()
@@ -53,7 +54,7 @@ def main():
 
     # Run the PyQt GUI in the main thread
     
-    main_app = MainApplication(sig_processed, app_to_signal_processing)
+    main_app = MainApplication(sig_processed, app_to_signal_processing, angle_range_queue)
     while True:
         if tracking_ready.get() == 1:
             break

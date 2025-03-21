@@ -164,7 +164,7 @@ class PickInsertionPointScreen(QDialog):
         self.accept()
 
 class FeedbackUI(QMainWindow):
-    def __init__(self, selected_vein, selected_point, max_updates=12, update_interval=10, work_queue=None):
+    def __init__(self, selected_vein, selected_point, max_updates=12, update_interval=10, work_queue=None, angle_range_queue=None):
         super().__init__()
         self.setWindowTitle("Feedback UI - Needle Insertion")
         self.showFullScreen()  # Make the window maximized
@@ -173,6 +173,9 @@ class FeedbackUI(QMainWindow):
         self.selected_vein = selected_vein
         self.selected_point = selected_point
         self.work_queue = work_queue
+        self.angle_range_queue = angle_range_queue
+
+        self.expert_pitch, _, self.expert_yaw, self.expert_pitch_std, _, self.expert_yaw_std = angle_range_queue.get()
 
         # Debug statements
         print(f"FeedbackUI - Selected Vein: {self.selected_vein}")
@@ -368,7 +371,12 @@ class FeedbackUI(QMainWindow):
         """Update the second circle indicator with the current angle and color."""
         target_angle = float(self.targetAngle.text())
         deviation = abs(angle - target_angle)
-        color = QColor("blue") if deviation <= 1.5 else QColor("orange")  # Use different colors for distinction
+        if deviation <= self.expert_pitch_std:
+            color = QColor("green")
+        elif deviation <= 1.5 * self.expert_pitch_std:
+            color = QColor("orange")
+        else:
+            color = QColor("red")
 
         # Create a pixmap to draw the circle
         pixmap = QPixmap(self.circleIndicator2.size())
@@ -526,11 +534,11 @@ class FeedbackUI(QMainWindow):
         layout_metrics = QGridLayout()
 
         layout_metrics.addWidget(QLabel("Target Depth (mm):"), 0, 0)
-        self.targetDepth = QLineEdit("50.00")
+        self.targetDepth = QLineEdit(str(self.expert_yaw))
         layout_metrics.addWidget(self.targetDepth, 0, 1)
 
         layout_metrics.addWidget(QLabel("Target Angle (°):"), 1, 0)
-        self.targetAngle = QLineEdit("30.00")
+        self.targetAngle = QLineEdit(str(self.expert_pitch))
         layout_metrics.addWidget(self.targetAngle, 1, 1)
 
         self.groupBox.setLayout(layout_metrics)
@@ -541,9 +549,14 @@ class FeedbackUI(QMainWindow):
 
     def _updateCircleIndicator(self, angle):
         """Update the circle indicator with the current angle and color."""
-        target_angle = float(self.targetAngle.text())
+        target_angle = float(self.targetDepth.text())
         deviation = abs(angle - target_angle)
-        color = QColor("green") if deviation <= 1.5 else QColor("red")
+        if deviation <= self.expert_yaw_std:
+            color = QColor("green")
+        elif deviation <= 1.5 * self.expert_yaw_std:
+            color = QColor("orange")
+        else:
+            color = QColor("red")
 
         # Create a pixmap to draw the circle
         pixmap = QPixmap(self.circleIndicator.size())
@@ -718,9 +731,10 @@ class FeedbackUI(QMainWindow):
 
 class MainApplication:
     """Manages the flow of the application."""
-    def __init__(self, sig_processed_queue, app_to_signal_processing):
+    def __init__(self, sig_processed_queue, app_to_signal_processing, angle_range_queue):
         self.sig_processed_queue = sig_processed_queue
         self.app_to_signal_processing = app_to_signal_processing
+        self.angle_range_queue = angle_range_queue
         self.app = QApplication(sys.argv)
         self.selected_vein = None
         self.selected_insertion_point = None
@@ -748,7 +762,7 @@ class MainApplication:
                     self.app_to_signal_processing.put([1, self.selected_vein, self.selected_insertion_point])
 
                     # Launch Feedback UI with selected vein and insertion point
-                    feedback_ui = FeedbackUI(self.selected_vein, self.selected_insertion_point, work_queue=self.sig_processed_queue)
+                    feedback_ui = FeedbackUI(self.selected_vein, self.selected_insertion_point, work_queue=self.sig_processed_queue, angle_range_queue=self.angle_range_queue)
                     feedback_ui.show()
                     sys.exit(self.app.exec())
 
