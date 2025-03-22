@@ -687,6 +687,11 @@ class FeedbackUI(QMainWindow):
         with open("session_log.txt", "a") as file:
             file.write(session_data)
 
+    def _endSimulation(self):
+        """End the simulation and show the summary page."""
+        self.timer.stop()
+        self._showSummaryPage()
+
     def _showSummaryPage(self):
         """Display the summary of the simulation."""
         angle_error = self.total_angle_deviation / self.max_updates
@@ -722,12 +727,33 @@ class FeedbackUI(QMainWindow):
         dialog_layout.addWidget(QLabel(f"Final Score: {score}/10"))
         dialog_layout.addWidget(QLabel(feedback))
 
-        close_button = QPushButton("Close")
-        close_button.clicked.connect(dialog.accept)
-        dialog_layout.addWidget(close_button)
+        # Button to return to the IntroScreen
+        returnToIntroButton = QPushButton("Return to Start")
+        returnToIntroButton.clicked.connect(lambda: self._returnToIntroScreen(dialog))
+        dialog_layout.addWidget(returnToIntroButton)
 
         dialog.setLayout(dialog_layout)
         dialog.exec()
+
+def _returnToIntroScreen(self, dialog):
+        """Return to the IntroScreen and restart the application flow."""
+        dialog.close()  # Close the summary dialog
+        self.close()    # Close the FeedbackUI window
+
+        # Re-launch the intro screen
+        intro_screen = IntroScreen()
+        if intro_screen.exec() == QDialog.DialogCode.Accepted:
+            vein_screen = PickVeinScreen()
+            if vein_screen.exec() == QDialog.DialogCode.Accepted:
+                selected_vein = vein_screen.selected_vein
+
+                insertion_point_screen = PickInsertionPointScreen(selected_vein)
+                if insertion_point_screen.exec() == QDialog.DialogCode.Accepted:
+                    selected_insertion_point = insertion_point_screen.selected_point
+
+                    # Relaunch Feedback UI
+                    self.feedback_ui = FeedbackUI(selected_vein, selected_insertion_point)
+                    self.feedback_ui.show()
 
 class MainApplication:
     """Manages the flow of the application."""
