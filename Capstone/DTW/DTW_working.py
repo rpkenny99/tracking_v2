@@ -244,25 +244,19 @@ def plot_combined_similarity_results(data_df1, data_df2, similarity_scores, refe
     plt.legend(loc="upper right", bbox_to_anchor=(1.15, 1), ncol=2, fontsize="small")
     plt.show()
 
-# Main program
-base_directory = input(
-    "Please enter the path to the main directory containing 'input' and 'reference' subdirectories: ")
-input_subdirectory = "input"
-reference_subdirectory = "reference"
-
-# Load the single input dataset
-input_file_list = glob.glob(os.path.join(base_directory, input_subdirectory, "*.txt"))
-if not input_file_list:
-    print(f"No text files found in directory: {os.path.join(base_directory, input_subdirectory)}")
-    exit()
-else:
+def compute_dtw(expert_data, trainee_data="Capstone/Filter/filtered_data.txt"):
+    # Main program
+    input_subdirectory = trainee_data
+    reference_subdirectory = expert_data
+    average_similarity = []
+    
     # input_data_df = load_multidimensional_data_as_dataframe(input_file_list)
-    input_data_df = load_multidimensional_data_as_dataframe(input_file_list[0])
+    input_data_df = load_multidimensional_data_as_dataframe(trainee_data)
 
     # Loop through each reference dataset in the "reference" subdirectory
-    reference_file_list = glob.glob(os.path.join(base_directory, reference_subdirectory, "*.txt"))
+    reference_file_list = glob.glob(os.path.join(reference_subdirectory, "filtered_data_*.txt"))
     if not reference_file_list:
-        print(f"No text files found in directory: {os.path.join(base_directory, reference_subdirectory)}")
+        print(f"No text files found in directory: {reference_subdirectory}")
         exit()
     else:
         for reference_file in reference_file_list:
@@ -280,40 +274,41 @@ else:
                 # Check if all similarity scores are NaN
                 if np.all(np.isnan(similarity_scores)):
                     print(
-                        f"\nThe similarity scores for {os.path.basename(input_file_list[0])} and {reference_name} are all NaN. Skipping analysis.")
+                        f"\nThe similarity scores for {trainee_data} and {reference_name} are all NaN. Skipping analysis.")
                     continue
 
                 # Calculate the average similarity score
-                average_similarity = np.nanmean(similarity_scores)
+                average_similarity.append(np.nanmean(similarity_scores))
 
                 # Generate 3D trajectory plot
                 print("\nGenerating 3D Trajectory Plot...")
-                plot_3d_trajectory(array1, array2, reference_name)
+                # plot_3d_trajectory(array1, array2, reference_name)
 
                 print(f"\nComparison with {reference_name}:")
                 print("Similarity scores for each dimension:", similarity_scores)
                 print("Average similarity score across all dimensions:", average_similarity)
 
                 # Check if the average similarity score is zero (identical datasets)
-                if np.isclose(average_similarity, 0):
-                    print(f"\nThe datasets {os.path.basename(input_file_list[0])} and {reference_name} are identical. No difference to analyze.")
-                    continue  # Skip generating graphs for identical datasets
+                # if np.isclose(average_similarity, 0):
+                #     print(f"\nThe datasets {trainee_data} and {reference_name} are identical. No difference to analyze.")
+                #     continue  # Skip generating graphs for identical datasets
 
                 # Identify the three dimensions with the most difference (highest similarity scores)
                 most_different_indices = np.argsort(similarity_scores)[-3:][::-1]  # Top 3 highest scores
                 print(f"The three dimensions with the most difference (highest similarity scores) are: {most_different_indices}")
 
                 # Generate plots for the three dimensions with the most difference
-                for dimension in most_different_indices:
-                    print(f"\nGenerating plots for Dimension {dimension}...")
-                    plot_dtw_alignment(
-                        array1[:, dimension],
-                        array2[:, dimension],
-                        reference_name,
-                        dimension
-                    )
+                # for dimension in most_different_indices:
+                #     print(f"\nGenerating plots for Dimension {dimension}...")
+                #     plot_dtw_alignment(
+                #         array1[:, dimension],
+                #         array2[:, dimension],
+                #         reference_name,
+                #         dimension
+                #     )
 
                 # Generate the combined similarity results graph
-                plot_combined_similarity_results(input_data_df, reference_data_df, similarity_scores, reference_name)
+                # plot_combined_similarity_results(input_data_df, reference_data_df, similarity_scores, reference_name)
             else:
                 print(f"Failed to load dataset: {reference_name}")
+    return average_similarity

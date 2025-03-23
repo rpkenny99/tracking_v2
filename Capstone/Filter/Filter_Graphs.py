@@ -151,8 +151,6 @@ def process_file_2(raw_data_queue,
                     output_fh = None
                 print("Closed file because sim_running went 1→0")
 
-                
-
             simulation_running = new_val
         except queue.Empty:
             pass

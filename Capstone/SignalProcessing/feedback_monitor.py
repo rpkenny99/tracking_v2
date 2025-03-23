@@ -1,6 +1,8 @@
 from SignalProcessing.signal_processing import sig_processing
 from threading import Thread
 from queue import Queue
+from DTW.DTW_working import compute_dtw
+import os
 
 def load_angle_stats(filepath):
     with open(filepath, 'r') as f:
@@ -22,11 +24,26 @@ def load_angle_stats(filepath):
         stats["final_std_yaw"],
     )
 
-def get_average_insertion_and_elevation_angles(vein, location):
+def get_expert_data_file_path(vein, location):
     if vein == "Left Vein":
         if location == "Point B":
-            fp = r"Capstone/SignalProcessing/expert_data/left-vein/middle/angle_stats.txt"
-            return load_angle_stats(fp)
+            fp = r"Capstone/SignalProcessing/expert_data/left-vein/middle"
+        if location == "Point A":
+            fp = r"Capstone/SignalProcessing/expert_data/left-vein/bottom"
+        if location == "Point C":
+            fp = r"Capstone/SignalProcessing/expert_data/left-vein/top"
+    if vein == "Right Vein":
+        if location == "Point B":
+            fp = r"Capstone/SignalProcessing/expert_data/right-vein/middle"
+        if location == "Point A":
+            fp = r"Capstone/SignalProcessing/expert_data/right-vein/bottom"
+        if location == "Point C":
+            fp = r"Capstone/SignalProcessing/expert_data/right-vein/top"
+    return fp
+
+def get_average_insertion_and_elevation_angles(fp):
+    fp = os.path.join(fp, "angle_stats.txt")
+    return load_angle_stats(fp)
 
 def monitor(filtered, sig_processed, app_to_signal_processing, angle_range_queue, simulation_running_queue):
     """
@@ -36,6 +53,7 @@ def monitor(filtered, sig_processed, app_to_signal_processing, angle_range_queue
     print("Feedback Monitor started")
     signal_processor = None
     control = Queue()
+    fp = None
     while True:
         print("Waiting on user input...")
         vein, location = app_to_signal_processing.get(block=True)
@@ -48,12 +66,15 @@ def monitor(filtered, sig_processed, app_to_signal_processing, angle_range_queue
             print("Ending Signal Processing...\n")
             simulation_running_queue.put(0)
 
+            # Call Dynamic Time Warping
+            compute_dtw(fp)
 
         else:
             # If any of the setup conditions are none, keep polling for the rest.
             print(f"{vein=}, {location=}\n")
 
-            expert_pitch, expert_roll, expert_yaw, expert_pitch_std, expert_roll_std, expert_yaw_std = get_average_insertion_and_elevation_angles(vein, location)
+            fp = get_expert_data_file_path(vein, location)
+            expert_pitch, expert_roll, expert_yaw, expert_pitch_std, expert_roll_std, expert_yaw_std = get_average_insertion_and_elevation_angles(fp)
             angle_range_queue.put([expert_pitch, expert_roll, expert_yaw, expert_pitch_std, expert_roll_std, expert_yaw_std])
 
             signal_processor = Thread(target=sig_processing, args=[filtered, sig_processed, control], daemon=True)
