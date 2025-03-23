@@ -13,6 +13,10 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from queue import Queue
 
+import matplotlib
+# Hide debug messages (only show warnings and above)
+matplotlib.set_loglevel("warning")
+
 class IntroScreen(QDialog):
     """Introductory screen to start the simulation."""
     def __init__(self):
@@ -164,7 +168,14 @@ class PickInsertionPointScreen(QDialog):
         self.accept()
 
 class FeedbackUI(QMainWindow):
-    def __init__(self, selected_vein, selected_point, max_updates=12, update_interval=10, work_queue=None, angle_range_queue=None):
+    def __init__(self,
+                 selected_vein,
+                 selected_point,
+                 max_updates=12,
+                 update_interval=10,
+                 work_queue=None,
+                 angle_range_queue=None,
+                 app_to_signal_processing=None):
         super().__init__()
         self.setWindowTitle("Feedback UI - Needle Insertion")
         self.showFullScreen()  # Make the window maximized
@@ -174,6 +185,7 @@ class FeedbackUI(QMainWindow):
         self.selected_point = selected_point
         self.work_queue = work_queue
         self.angle_range_queue = angle_range_queue
+        self.app_to_signal_processing = app_to_signal_processing
 
         self.expert_pitch, _, self.expert_yaw, self.expert_pitch_std, _, self.expert_yaw_std = angle_range_queue.get()
 
@@ -354,9 +366,9 @@ class FeedbackUI(QMainWindow):
         self.restartButton.clicked.connect(self._restartSimulation)
         buttonLayout.addWidget(self.restartButton)
 
-        self.logButton = QPushButton("Log Data")
-        self.logButton.clicked.connect(self._logSessionData)
-        buttonLayout.addWidget(self.logButton)
+        self.endSimulationButton = QPushButton("End Simulation")
+        self.endSimulationButton.clicked.connect(self._endSimulation)
+        buttonLayout.addWidget(self.endSimulationButton)
 
         rightLayout.addLayout(buttonLayout)
 
@@ -687,6 +699,11 @@ class FeedbackUI(QMainWindow):
         with open("session_log.txt", "a") as file:
             file.write(session_data)
 
+    def _endSimulation(self):
+        """End the simulation and show the summary page."""
+        self.timer.stop()
+        self._showSummaryPage()
+
     def _showSummaryPage(self):
         """Display the summary of the simulation."""
         angle_error = self.total_angle_deviation / self.max_updates
@@ -722,12 +739,43 @@ class FeedbackUI(QMainWindow):
         dialog_layout.addWidget(QLabel(f"Final Score: {score}/10"))
         dialog_layout.addWidget(QLabel(feedback))
 
-        close_button = QPushButton("Close")
-        close_button.clicked.connect(dialog.accept)
-        dialog_layout.addWidget(close_button)
+        # Button to return to the IntroScreen
+        returnToIntroButton = QPushButton("Return to Start")
+        returnToIntroButton.clicked.connect(lambda: self._returnToIntroScreen(dialog))
+        dialog_layout.addWidget(returnToIntroButton)
+
+        self.app_to_signal_processing.put([None, None])
+        print(f"{list(self.app_to_signal_processing.queue)=}")
 
         dialog.setLayout(dialog_layout)
         dialog.exec()
+
+    def _returnToIntroScreen(self, dialog):
+        """Return to the IntroScreen and restart the application flow."""
+        dialog.close()  # Close the summary dialog
+        self.close()    # Close the FeedbackUI window
+
+        # Re-launch the intro screen
+        intro_screen = IntroScreen()
+        if intro_screen.exec() == QDialog.DialogCode.Accepted:
+            vein_screen = PickVeinScreen()
+            if vein_screen.exec() == QDialog.DialogCode.Accepted:
+                selected_vein = vein_screen.selected_vein
+
+                insertion_point_screen = PickInsertionPointScreen(selected_vein)
+                if insertion_point_screen.exec() == QDialog.DialogCode.Accepted:
+                    selected_insertion_point = insertion_point_screen.selected_point
+
+                    self.app_to_signal_processing.put([selected_vein, selected_insertion_point])
+                    print(f"{list(self.app_to_signal_processing.queue)=}")
+
+                    # Relaunch Feedback UI
+                    self.feedback_ui = FeedbackUI(selected_vein,
+                                                  selected_insertion_point,
+                                                  work_queue=self.work_queue,
+                                                  angle_range_queue=self.angle_range_queue,
+                                                  app_to_signal_processing=self.app_to_signal_processing)
+                    self.feedback_ui.show()
 
 class MainApplication:
     """Manages the flow of the application."""
@@ -743,14 +791,11 @@ class MainApplication:
         # Intro Screen
         intro_screen = IntroScreen()
         if intro_screen.exec() == QDialog.DialogCode.Accepted:
-            self.app_to_signal_processing.put([1, None, None])
             # Pick Vein Screen
             vein_screen = PickVeinScreen()
             if vein_screen.exec() == QDialog.DialogCode.Accepted:
                 self.selected_vein = vein_screen.selected_vein
                 print(f"Selected Vein: {self.selected_vein}")  # Debug statement
-
-                self.app_to_signal_processing.put([1, self.selected_vein, None])
                 
 
                 # Pick Insertion Point Screen
@@ -759,14 +804,21 @@ class MainApplication:
                     self.selected_insertion_point = insertion_point_screen.selected_point
                     print(f"Selected Insertion Point: {self.selected_insertion_point}")  # Debug statement
 
-                    self.app_to_signal_processing.put([1, self.selected_vein, self.selected_insertion_point])
+                    self.app_to_signal_processing.put([self.selected_vein, self.selected_insertion_point])
+                    print(f"{list(self.app_to_signal_processing.queue)=}")
 
                     # Launch Feedback UI with selected vein and insertion point
-                    feedback_ui = FeedbackUI(self.selected_vein, self.selected_insertion_point, work_queue=self.sig_processed_queue, angle_range_queue=self.angle_range_queue)
+                    feedback_ui = FeedbackUI(self.selected_vein,
+                                             self.selected_insertion_point,
+                                             work_queue=self.sig_processed_queue,
+                                             angle_range_queue=self.angle_range_queue,
+                                             app_to_signal_processing=self.app_to_signal_processing)
                     feedback_ui.show()
                     sys.exit(self.app.exec())
 
 if __name__ == "__main__":
     sig_processed = Queue()
-    main_app = MainApplication(sig_processed)
+    app_to_signal_processing = Queue()
+    angle_range_queue = Queue()
+    main_app = MainApplication(sig_processed, app_to_signal_processing, angle_range_queue)
     main_app.run()

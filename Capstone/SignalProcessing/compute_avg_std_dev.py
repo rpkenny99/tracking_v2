@@ -59,7 +59,6 @@ def get_mean_std_bounds():
     """Retrieve mean, upper, and lower bound trajectories based on spatial proximities."""
     folder_path = "Capstone/SignalProcessing/expert_data/left-vein/middle/"
     file_list = sorted(glob.glob(f"{folder_path}filtered_data_*.txt"))
-    print(f"{file_list=}")
     return compute_statistics_spatial(file_list), load_trajectories(file_list)
 
 def plot_trajectories(mean_traj, upper_bound, lower_bound, trajectories):

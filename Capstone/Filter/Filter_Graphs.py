@@ -166,7 +166,8 @@ def process_file_2(raw_data_queue,
                     ]
                 output.write(" ".join(map(str, filtered_row)) + "\n")
                 output.flush()  # Ensure real-time writing to the file
-                filtered_data_queue.put(filtered_row)
+                if filtered_data_queue.empty():
+                    filtered_data_queue.put(filtered_row)
 
         # plot_data(raw_data, filtered_data)
         # plot_filtered_and_translated_data("Capstone/Filter/filtered_data.txt", "left_vein_final.txt", "right_vein_final.txt")

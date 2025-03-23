@@ -7,6 +7,7 @@ from queue import Queue
 from Tracking.markerDetection import startTracking
 from Filter.Filter_Graphs import process_file_2
 from SignalProcessing.signal_processing import sig_processing
+from SignalProcessing.feedback_monitor import monitor
 from Feedback.updated_feeback import MainApplication
 from Projection.imgProj10 import start
 import time
@@ -34,8 +35,6 @@ def perform_work(work):
         # Otherwise, process item
         display(f"Consumed: {item}")
 
-
-
 def main():
     raw = Queue()
     filtered = Queue()
@@ -46,11 +45,12 @@ def main():
 
     raw_tracking = Thread(target=startTracking, args=[raw, tracking_ready], daemon=True)
     filter = Thread(target=process_file_2, args=[raw, filtered], daemon=True)
-    signal_processing = Thread(target=sig_processing, args=[filtered, sig_processed, app_to_signal_processing, angle_range_queue], daemon=True)
+    feedback_monitor = Thread(target=monitor, args=[filtered, sig_processed, app_to_signal_processing, angle_range_queue], daemon=True)
+    # signal_processing = Thread(target=sig_processing, args=[filtered, sig_processed, app_to_signal_processing, angle_range_queue], daemon=True)
 
     raw_tracking.start()
     filter.start()
-    signal_processing.start()
+    feedback_monitor.start()
 
     # Run the PyQt GUI in the main thread
     
@@ -69,7 +69,7 @@ def main():
     filter.join()
     display('filter has finished')
 
-    signal_processing.join()
+    feedback_monitor.join()
     display('signal processing has finished')
 
 

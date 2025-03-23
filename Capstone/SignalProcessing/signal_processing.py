@@ -2,6 +2,7 @@ import numpy as np
 import time
 from functools import wraps
 from SignalProcessing.compute_avg_std_dev import get_mean_std_bounds
+import queue
 
 def time_it(func):
     """Decorator to measure execution time of a function."""
@@ -131,33 +132,7 @@ def load_data(filename):
     data = np.loadtxt(filename)
     return data[:, 0], data[:, 1], data[:, 2]
 
-def load_angle_stats(filepath):
-    with open(filepath, 'r') as f:
-        line = f.readline().strip()
-
-    # Convert line to dict
-    parts = line.split(", ")
-    stats = {}
-    for part in parts:
-        key, val = part.split("=")
-        stats[key] = float(val)
-
-    return (
-        stats["final_avg_pitch"],
-        stats["final_avg_roll"],
-        stats["final_avg_yaw"],
-        stats["final_std_pitch"],
-        stats["final_std_roll"],
-        stats["final_std_yaw"],
-    )
-
-def get_average_insertion_and_elevation_angles(vein, location):
-    if vein == "Left Vein":
-        if location == "Point B":
-            fp = r"Capstone/SignalProcessing/expert_data/left-vein/middle/angle_stats.txt"
-            return load_angle_stats(fp)
-
-def sig_processing(filtered_data_queue, sig_processed_queue, app_to_signal_processing, angle_range_queue):
+def sig_processing(filtered_data_queue, sig_processed_queue, control):
     """
     Receives live trajectory data, finds the closest mean trajectory point, and 
     checks if it's within the standard deviation bounds.
@@ -166,56 +141,37 @@ def sig_processing(filtered_data_queue, sig_processed_queue, app_to_signal_proce
     prev_idx = None
     (mean_traj, upper_bound, lower_bound), _ = get_mean_std_bounds()
 
-    expert_pitch, expert_roll, expert_yaw, expert_pitch_std, expert_roll_std, expert_yaw_std = None, None, None, None, None, None
-
-    feedback_started = False
-
     _, _, Tz_left = load_data(r'Capstone/SignalProcessing/left_vein.txt')
     _, _, Tz_right = load_data(r'Capstone/SignalProcessing/right_vein.txt')
 
     while True:
-        # Case where feedback is running and we get a new item in the queue. It will always be to end sim
-        if not app_to_signal_processing.empty() and feedback_started:
-            app_to_signal_processing.get()
-            feedback_started = False
-
-        # Case where feedback is not running and queue is empty. No action required to continue.
-        elif app_to_signal_processing.empty() and not feedback_started:
+        if not control.empty():
+            control.get()
+            break
+        try:
+            # Wait up to 1 second for new data
+            filtered_data_entry = filtered_data_queue.get(timeout=0.5)
+            # Process data
+        except queue.Empty:
+            # If no data arrived within 1s, loop again, check stop_event
             continue
 
-        # Case where the queue is not empty and feedback has not started. Meaning there is some setup information
-        elif not app_to_signal_processing.empty():
-            sim_running, vein, location = app_to_signal_processing.get()
-            # If any of the setup conditions are none, keep polling for the rest.
-            print(f"{sim_running}, {vein=}, {location=}")
-            if sim_running is None or vein is None or location is None:
-                continue
+        if filtered_data_entry is None:
+            print("Signal Processor Dying...")
+            sig_processed_queue.put(None)
+            break
+
+        # print(f"Received Live Data: {filtered_data_entry}")
+        if sig_processed_queue.empty():
+            sig_processed_queue.put(filtered_data_entry)
+
+        if np.any(filtered_data_entry[2] < (Tz_left + 15)) or np.any(filtered_data_entry[2] < (Tz_right + 15)): 
+            # Check if the live data is within bounds
+            within_bounds_pro, within_bounds_amateur, nearest_idx = is_within_bounds(filtered_data_entry, mean_traj, upper_bound, lower_bound)
+
+            if within_bounds_pro:
+                print(f"✅")
+            elif within_bounds_amateur:
+                print(f"🟨")
             else:
-                feedback_started = True
-                expert_pitch, expert_roll, expert_yaw, expert_pitch_std, expert_roll_std, expert_yaw_std = get_average_insertion_and_elevation_angles(vein, location)
-                angle_range_queue.put([expert_pitch, expert_roll, expert_yaw, expert_pitch_std, expert_roll_std, expert_yaw_std])
-
-                print(f"{expert_pitch=}")
-
-        
-        filtered_data_entry = filtered_data_queue.get()
-        if feedback_started:
-            if filtered_data_entry is None:
-                print("Signal Processor Dying...")
-                sig_processed_queue.put(None)
-                break
-
-            # print(f"Received Live Data: {filtered_data_entry}")
-            if sig_processed_queue.empty():
-                sig_processed_queue.put(filtered_data_entry)
-
-            if np.any(filtered_data_entry[2] < (Tz_left + 15)) or np.any(filtered_data_entry[2] < (Tz_right + 15)): 
-                # Check if the live data is within bounds
-                within_bounds_pro, within_bounds_amateur, nearest_idx = is_within_bounds(filtered_data_entry, mean_traj, upper_bound, lower_bound)
-
-                if within_bounds_pro:
-                    print(f"✅")
-                elif within_bounds_amateur:
-                    print(f"🟨")
-                else:
-                    print(f"❌")
+                print(f"❌")

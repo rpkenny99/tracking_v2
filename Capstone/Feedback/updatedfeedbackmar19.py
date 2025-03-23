@@ -429,7 +429,7 @@ class FeedbackUI(QMainWindow):
         self.ax.zaxis.line.set_alpha(0)
 
         # Load and plot left vein
-        left_vein_file = "leftveinvein2_smoothed4.xlsx"
+        left_vein_file = "Capstone/Feedback/leftveinvein2_smoothed4.xlsx"
         left_data = pd.read_excel(left_vein_file)
         Tx_left, Ty_left, Tz_left = left_data['Tx'].to_numpy(), left_data['Ty'].to_numpy(), left_data['Tz'].to_numpy()
         threshold = -1e10
@@ -445,7 +445,7 @@ class FeedbackUI(QMainWindow):
         self.ax.plot(points_left[:, 0], points_left[:, 1], points_left[:, 2], 'b', label="Left Vein")
 
         # Load and plot right vein
-        right_vein_file = "rightvein2.xlsx"         
+        right_vein_file = "Capstone/Feedback/rightvein2.xlsx"         
 
         right_data = pd.read_excel(right_vein_file)
         Tx_right, Ty_right, Tz_right = right_data['Tx'].to_numpy(), right_data['Ty'].to_numpy(), right_data['Tz'].to_numpy()

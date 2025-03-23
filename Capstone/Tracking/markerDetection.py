@@ -635,7 +635,8 @@ def RunVideoCaptureDetection(queue, tracking_ready, vidCapturePath=None):
         while rval:
             post_process_frame, data = ProcessFrame_2(frame, file)
             if data[0] != None:
-                queue.put(data)
+                if queue.empty():
+                    queue.put(data)
                 # print(f"Putting: {data} into queue\n")
 
 
