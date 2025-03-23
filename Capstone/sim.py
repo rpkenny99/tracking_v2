@@ -42,10 +42,11 @@ def main():
     sig_processed = Queue()
     app_to_signal_processing = Queue() # Sim_run, vein, location
     angle_range_queue = Queue()
+    simulation_running_queue = Queue()
 
     raw_tracking = Thread(target=startTracking, args=[raw, tracking_ready], daemon=True)
-    filter = Thread(target=process_file_2, args=[raw, filtered], daemon=True)
-    feedback_monitor = Thread(target=monitor, args=[filtered, sig_processed, app_to_signal_processing, angle_range_queue], daemon=True)
+    filter = Thread(target=process_file_2, args=[raw, filtered, simulation_running_queue], daemon=True)
+    feedback_monitor = Thread(target=monitor, args=[filtered, sig_processed, app_to_signal_processing, angle_range_queue, simulation_running_queue], daemon=True)
     # signal_processing = Thread(target=sig_processing, args=[filtered, sig_processed, app_to_signal_processing, angle_range_queue], daemon=True)
 
     raw_tracking.start()

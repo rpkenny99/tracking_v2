@@ -6,6 +6,7 @@ import numpy as np
 import os
 import keyboard
 from itertools import count
+import queue
 
 DEFAULT_FILTERED_DATA_FILE_PATH = "Capstone/Filter/filtered_data.txt"
 
@@ -118,6 +119,7 @@ filtered_data = {key: [] for key in ["x", "y", "z", "roll", "pitch", "yaw"]}  # 
 
 def process_file_2(raw_data_queue,
                    filtered_data_queue,
+                   simulation_running_queue,
                    output_file=DEFAULT_FILTERED_DATA_FILE_PATH,
                    cutoff_freq=5,
                    sample_time=0.02,
@@ -128,53 +130,80 @@ def process_file_2(raw_data_queue,
     global raw_data
 
     start_wait_time = None
+    simulation_running = 0
+    output_fh = None   # Will hold our file handle when simulation_running == 1
 
-    try:
-        with open(output_file, 'w') as output:
-            while True:
-                raw_data_entry = raw_data_queue.get()               # blocking get
-                if raw_data_entry is None:               # <-- sentinel
-                    break
-                # Otherwise, process item
-                # print(f"Consumed: {raw_data_entry}")
+    while True:
+        # 1) Check if there's a new simulation_running value
+        try:
+            new_val = simulation_running_queue.get_nowait()
+            # If we are switching from 0 to 1, open the file in 'w' mode
+            if new_val == 1 and simulation_running == 0:
+                if output_fh is not None:
+                    output_fh.close()
+                output_fh = open(output_file, 'w')
+                print("Opened file in write mode (overwrite) because sim_running went 0→1")
 
-                                    # Parse data
-                x0, y0, z0, roll0, pitch0, yaw0 = raw_data_entry
+            # If we are switching from 1 to 0, close the file
+            elif new_val == 0 and simulation_running == 1:
+                if output_fh is not None:
+                    output_fh.close()
+                    output_fh = None
+                print("Closed file because sim_running went 1→0")
 
-                # Update buffers and compute filtered values
-                for key, value in zip(
-                        ["x", "y", "z", "roll", "pitch", "yaw"],
-                        [x0, y0, z0, roll0, pitch0, yaw0],
-                ):
-                    raw_data[key].append(value)
-                    buffers[key] = [value] + buffers[key][:2]
-                    outputs[key] = [
-                                        scipy_low(
-                                            cutoff_freq, sample_time,
-                                            buffers[key][0], buffers[key][1], buffers[key][2],
-                                            outputs[key][0], outputs[key][1],
-                                        )
-                                    ] + outputs[key][:1]
+                
 
-                    # Store filtered data
-                    filtered_data[key].append(outputs[key][0])
+            simulation_running = new_val
+        except queue.Empty:
+            pass
 
-                    # Write filtered data to the output file immediately
-                    filtered_row = [
-                        outputs["x"][0], outputs["y"][0], outputs["z"][0],
-                        outputs["roll"][0], outputs["pitch"][0], outputs["yaw"][0],
-                    ]
-                output.write(" ".join(map(str, filtered_row)) + "\n")
-                output.flush()  # Ensure real-time writing to the file
-                if filtered_data_queue.empty():
-                    filtered_data_queue.put(filtered_row)
+        try:
+            # Wait up to 1 second for new data
+            raw_data_entry = raw_data_queue.get(timeout=0.5)   
+            # Process data
+        except queue.Empty:
+            # If no data arrived within 1s, loop again, check stop_event
+            continue
+        if raw_data_entry is None:               # <-- sentinel
+            break
+        # Otherwise, process item
+        # print(f"Consumed: {raw_data_entry}")
+
+                            # Parse data
+        x0, y0, z0, roll0, pitch0, yaw0 = raw_data_entry
+
+        # Update buffers and compute filtered values
+        for key, value in zip(
+                ["x", "y", "z", "roll", "pitch", "yaw"],
+                [x0, y0, z0, roll0, pitch0, yaw0],
+        ):
+            raw_data[key].append(value)
+            buffers[key] = [value] + buffers[key][:2]
+            outputs[key] = [
+                                scipy_low(
+                                    cutoff_freq, sample_time,
+                                    buffers[key][0], buffers[key][1], buffers[key][2],
+                                    outputs[key][0], outputs[key][1],
+                                )
+                            ] + outputs[key][:1]
+
+            # Store filtered data
+            filtered_data[key].append(outputs[key][0])
+
+            # Write filtered data to the output file immediately
+            filtered_row = [
+                outputs["x"][0], outputs["y"][0], outputs["z"][0],
+                outputs["roll"][0], outputs["pitch"][0], outputs["yaw"][0],
+            ]
+        if simulation_running:
+            output_fh.write(" ".join(map(str, filtered_row)) + "\n")
+            output_fh.flush()  # Ensure real-time writing to the file
+        if filtered_data_queue.empty():
+            filtered_data_queue.put(filtered_row)
 
         # plot_data(raw_data, filtered_data)
         # plot_filtered_and_translated_data("Capstone/Filter/filtered_data.txt", "left_vein_final.txt", "right_vein_final.txt")
-        remove_first_n_lines(output_file, n=10)
-
-    except KeyboardInterrupt:
-        print("\nProcessing interrupted by user.")
+    remove_first_n_lines(output_file, n=10)
 
     filtered_data_queue.put(None)
 

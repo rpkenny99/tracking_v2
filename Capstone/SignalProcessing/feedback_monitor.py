@@ -28,7 +28,7 @@ def get_average_insertion_and_elevation_angles(vein, location):
             fp = r"Capstone/SignalProcessing/expert_data/left-vein/middle/angle_stats.txt"
             return load_angle_stats(fp)
 
-def monitor(filtered, sig_processed, app_to_signal_processing, angle_range_queue):
+def monitor(filtered, sig_processed, app_to_signal_processing, angle_range_queue, simulation_running_queue):
     """
     Receives live trajectory data, finds the closest mean trajectory point, and 
     checks if it's within the standard deviation bounds.
@@ -46,6 +46,7 @@ def monitor(filtered, sig_processed, app_to_signal_processing, angle_range_queue
             signal_processor.join()
             signal_processor = None
             print("Ending Signal Processing...\n")
+            simulation_running_queue.put(0)
 
 
         else:
@@ -57,6 +58,8 @@ def monitor(filtered, sig_processed, app_to_signal_processing, angle_range_queue
 
             signal_processor = Thread(target=sig_processing, args=[filtered, sig_processed, control], daemon=True)
             signal_processor.start()
+
+            simulation_running_queue.put(1)
 
             print(f"{expert_pitch=}")
 
