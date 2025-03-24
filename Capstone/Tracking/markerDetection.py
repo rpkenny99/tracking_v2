@@ -19,7 +19,7 @@ velocity_history = deque(maxlen=7)  # Stores last 7 translational velocities
 
 markerDict = aruco.getPredefinedDictionary(aruco.DICT_6X6_100)
 paramMarkers = aruco.DetectorParameters()
-calib_data_path = r"Capstone/Tracking/Calibration/60FOV/calib_data copy/MultiMatrix.npz"
+calib_data_path = r"Capstone/Tracking/Calibration/90FOV/calib_data/MultiMatrix.npz"
 calib_data = np.load(calib_data_path)
 
 cam_mat = calib_data["camMatrix"]
@@ -40,10 +40,10 @@ length_of_rod = 52.72
 
 first_data = True
 
-MARKER_SIZE = 11.77
+MARKER_SIZE = 12
 MARKER_SIZE_ORIGIN = 50.8
-REFERENCE_RVEC = np.array([1.72390991,  1.46571566, -0.69152207])
-REFERENCE_TVEC = np.array([-74.88694223, -48.7785478 , 504.60728419])
+REFERENCE_RVEC = np.array([1.2745078 ,  1.57958729, -1.28090312])
+REFERENCE_TVEC = np.array([47.73068906,  56.44002886, 414.44111322])
 FPS = 30
 TIME_PER_FRAME = 1/FPS
 
@@ -265,11 +265,11 @@ def dodecahedron_center_to_iv(rotation, translation):
     
 
     translation = translation + (57.35) * rotation[:, 2].reshape(3, 1)
-    translation = translation + (2) * rotation[:, 1].reshape(3, 1)
+    # translation = translation + (2) * rotation[:, 1].reshape(3, 1)
 
     # Rotate by -8 degrees around updated Z-axis
     local_z_axis = rotation[:, 2]
-    angle_rad = np.deg2rad(7.2)
+    angle_rad = np.deg2rad(8)
     R_local_z, _ = cv2.Rodrigues(local_z_axis * angle_rad)
     rotation = R_local_z @ rotation  
 
@@ -484,6 +484,8 @@ def ProcessFrame_2(frame, file):
                     translation[0][0] *= -1
                     translation[1][0] *= -1
                     translation[2][0] *= -1
+
+                # rotation, translation = dodecahedron_center_to_iv(rotation, translation)
 
                 cv2.drawFrameAxes(frame, cam_mat, dist_coef, rotation, translation, 7, 4)
 
