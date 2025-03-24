@@ -2,7 +2,8 @@ import sys
 import cv2
 import numpy as np
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtGui import QImage
+from PyQt6.QtGui import QImage, QPixmap
+# from PyQt6.QtCore import Qt
 from queue import Queue
 import os
 sys.path.append(os.path.join("Capstone", "Tracking"))
@@ -11,6 +12,9 @@ import queue
 
 # Import the UI from feedback3.py (adjust the import path as needed)
 from feedback3 import FeedbackUI
+
+WORLD_COORD_TO_ARM = 81.66, 97.77 # mm right, up
+
 
 def qpixmap_to_numpy(pixmap):
     """
