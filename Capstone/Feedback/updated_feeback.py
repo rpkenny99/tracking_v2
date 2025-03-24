@@ -12,8 +12,76 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from queue import Queue
-
+from scipy.spatial import cKDTree
+import glob
+import os
 import matplotlib
+
+
+STD_ACCEPTABLE = 1
+
+def load_trajectories(file_list):
+    """Loads all trajectory files into a list of NumPy arrays."""
+    return [np.loadtxt(fname) for fname in file_list]
+
+def compute_statistics_spatial(file_list):
+    """
+    Computes mean and standard deviation based on nearest spatial neighbors.
+    Uses filtered_data_1.txt as the reference trajectory.
+    """
+    trajectories = load_trajectories(file_list)
+    
+    # Use the first file as reference
+    ref_traj = trajectories[0]  # filtered_data_1.txt
+
+    spatial_means = []
+    spatial_stds = []
+
+    for ref_idx, ref_point in enumerate(ref_traj):
+        matched_points = []  # Store closest points from all other files
+
+        for traj in trajectories[1:]:  # Skip reference trajectory
+            if len(traj) == 0:
+                continue  # Skip empty trajectories
+            
+            # Query traj to find which of its points is closest to the current ref_point
+            _, nearest_idx = cKDTree(traj[:, :3]).query(ref_point[:3], k=1)  
+
+            matched_points.append(traj[nearest_idx])  # Store nearest traj point to ref_point
+
+        matched_points = np.vstack(matched_points)  # Convert to NumPy array
+        
+        # Compute mean and standard deviation at this reference point
+        mean_point = np.mean(matched_points, axis=0)
+        std_point = np.std(matched_points, axis=0)
+
+        spatial_means.append(mean_point)
+        spatial_stds.append(std_point)
+
+    # Convert to NumPy arrays
+    mean_traj = np.array(spatial_means)
+    std_traj = np.array(spatial_stds)
+
+    # Scale standard deviation bounds using STD_ACCEPTABLE
+    upper_bound = mean_traj + (STD_ACCEPTABLE * std_traj)
+    lower_bound = mean_traj - (STD_ACCEPTABLE * std_traj)
+
+    return mean_traj, upper_bound, lower_bound
+
+def get_mean_std_bounds():
+    """Retrieve mean, upper, and lower bound trajectories based on spatial proximities."""
+    folder_path = "C:\\Users\\ifiem\\OneDrive\\Documents\\CU\\4th Year First Semester\\Engineering Project\\Code\\calculator\\expert_data"
+    file_list = sorted(glob.glob(os.path.join(folder_path, "filtered_data_*.txt")))
+    
+    # Debug: Print the list of files found
+    print("Files found:", file_list)
+    
+    if not file_list:
+        raise FileNotFoundError(f"No files found in {folder_path} matching the pattern 'filtered_data_*.txt'.")
+    
+    return compute_statistics_spatial(file_list), load_trajectories(file_list)
+
+
 # Hide debug messages (only show warnings and above)
 matplotlib.set_loglevel("warning")
 
@@ -423,7 +491,7 @@ class FeedbackUI(QMainWindow):
         # Add the canvas to the layout
         layout.addWidget(self.canvas, alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
 
-        # Plot the veins
+        # Plot the veins using the copied functions
         self.ax = self.figure.add_subplot(111, projection='3d')
         self.ax.grid(False)  # Remove the grid
 
@@ -448,97 +516,86 @@ class FeedbackUI(QMainWindow):
         self.ax.yaxis.line.set_alpha(0)
         self.ax.zaxis.line.set_alpha(0)
 
-        # Load and plot left vein
-        left_vein_file = "Capstone/Feedback/leftveinvein2_smoothed4.xlsx"
-        left_data = pd.read_excel(left_vein_file)
-        Tx_left, Ty_left, Tz_left = left_data['Tx'].to_numpy(), left_data['Ty'].to_numpy(), left_data['Tz'].to_numpy()
-        threshold = -1e10
-        valid_indices_left = (Tx_left > threshold) & (Ty_left > threshold) & (Tz_left > threshold)
-        Tx_left, Ty_left, Tz_left = Tx_left[valid_indices_left], Ty_left[valid_indices_left], Tz_left[valid_indices_left]
+        # Get the mean trajectory, upper bound, and lower bound
+        (mean_traj, upper_bound, lower_bound), trajectories = get_mean_std_bounds()
 
-        # Scale the Tx, Ty, and Tz values by 2 to stretch the veins along all axes
-        Tx_left = Tx_left * 2
-        Ty_left = Ty_left * 2
-        Tz_left = Tz_left * 2
+        # Plot the mean trajectory and bounds
+        self.ax.plot(mean_traj[:, 0], mean_traj[:, 1], mean_traj[:, 2], 'w-', label="Mean")
+        self.ax.plot(upper_bound[:, 0], upper_bound[:, 1], upper_bound[:, 2], 'r--', label=f"Upper Bound (+{STD_ACCEPTABLE}σ)")
+        self.ax.plot(lower_bound[:, 0], lower_bound[:, 1], lower_bound[:, 2], 'b--', label=f"Lower Bound (-{STD_ACCEPTABLE}σ)")
 
-        points_left = np.vstack((Tx_left, Ty_left, Tz_left)).T
-        self.ax.plot(points_left[:, 0], points_left[:, 1], points_left[:, 2], 'b', label="Left Vein")
+        # Initialize live trajectory (empty at first)
+        self.live_trajectory = np.empty((0, 3))  # Empty array to store live data points
+        self.live_line, = self.ax.plot([], [], [], 'y-', label="Live")  # Yellow line for live data
 
-        # Load and plot right vein
-        right_vein_file = "Capstone/Feedback/rightvein2.xlsx"
-        right_data = pd.read_excel(right_vein_file)
-        Tx_right, Ty_right, Tz_right = right_data['Tx'].to_numpy(), right_data['Ty'].to_numpy(), right_data['Tz'].to_numpy()
-        valid_indices_right = (Tx_right > threshold) & (Ty_right > threshold) & (Tz_right > threshold)
-        Tx_right, Ty_right, Tz_right = Tx_right[valid_indices_right], Ty_right[valid_indices_right], Tz_right[valid_indices_right]
-
-        # Scale the Tx, Ty, and Tz values by 2 to stretch the veins along all axes
-        Tx_right = Tx_right * 2
-        Ty_right = Ty_right * 2
-        Tz_right = Tz_right * 2
-
-        points_right = np.vstack((Tx_right, Ty_right, Tz_right)).T
-        self.ax.plot(points_right[:, 0], points_right[:, 1], points_right[:, 2], 'r', label="Right Vein")
-
-        # Remove title and legend
+        # Remove title
         self.ax.set_title("")
-        self.ax.legend().set_visible(False)
+
+        # Add a legend and move it outside the plot
+        legend = self.ax.legend(loc='upper left', bbox_to_anchor=(0.8, 1), title="Legend")
+        legend.set_visible(True)
 
         # Ensure the entire figure and axes background are transparent
         self.ax.set_facecolor('none')
         self.figure.patch.set_alpha(0)  # Make entire figure transparent
 
-        # Store the original view and axis limits
-        self.original_elev = 30  # Default elevation
-        self.original_azim = -60  # Default azimuth
-        self.original_xlim = self.ax.get_xlim()
-        self.original_ylim = self.ax.get_ylim()
-        self.original_zlim = self.ax.get_zlim()
+        # Store the axis limits from the mean trajectory
+        self.xlim = self.ax.get_xlim()  # Store x-axis limits
+        self.ylim = self.ax.get_ylim()  # Store y-axis limits
+        self.zlim = self.ax.get_zlim()  # Store z-axis limits
+
+        # Debug: Print the axis limits
+        print(f"X-axis limits: {self.xlim}")
+        print(f"Y-axis limits: {self.ylim}")
+        print(f"Z-axis limits: {self.zlim}")
 
         # Set the initial view
         self.ax.view_init(elev=self.original_elev, azim=self.original_azim)
         self.canvas.draw()
 
-        # Start the animation after 2 seconds
-        self.animation_timer = QTimer()
-        self.animation_timer.timeout.connect(self._animatePlot)
-        self.animation_timer.start(2000)  # 2-second delay
+        # Start a timer for live updates
+        self.live_update_timer = QTimer()
+        self.live_update_timer.timeout.connect(self._updateLiveTrajectory)
+        self.live_update_timer.start(500)  # Update every 500 ms
 
-    def _animatePlot(self):
-        """Animate the plot by rotating and panning, then return to the original position."""
-        if not hasattr(self, 'animation_step'):
-            # Initialize animation parameters
-            self.animation_step = 0
-            self.animation_duration = 100  # Number of steps for the animation
-            self.animation_timer.setInterval(100)  # Update every 50 ms
+    def _updateLiveTrajectory(self):
+        """Update the live trajectory with new data points."""
+        # Simulate fetching new data points from the tracking system
+        # Replace this with actual data from your tracking system
+        new_point = np.array([[uniform(180, 200), uniform(45, 80), uniform(30, 55)]])
 
-        if self.animation_step < self.animation_duration:
-            # Calculate intermediate values for elevation, azimuth, and panning
-            progress = self.animation_step / self.animation_duration
-            elev = self.original_elev + 30 * np.sin(2 * np.pi * progress)  # Oscillate elevation
-            azim = self.original_azim + 360 * progress  # Rotate azimuth
-            x_shift = 10 * np.sin(2 * np.pi * progress)  # Oscillate x-axis panning
-            y_shift = 10 * np.cos(2 * np.pi * progress)  # Oscillate y-axis panning
+        # Debug: Print the new point
+        #print(f"New point: {new_point}")
 
-            # Update the view
-            self.ax.view_init(elev=elev, azim=azim)
-            self.ax.set_xlim([self.original_xlim[0] + x_shift, self.original_xlim[1] + x_shift])
-            self.ax.set_ylim([self.original_ylim[0] + y_shift, self.original_ylim[1] + y_shift])
+        # Normalize the new point to fit within the axis limits
+        new_point[:, 0] = np.clip(new_point[:, 0], self.xlim[0], self.xlim[1])  # Clip x values
+        new_point[:, 1] = np.clip(new_point[:, 1], self.ylim[0], self.ylim[1])  # Clip y values
+        new_point[:, 2] = np.clip(new_point[:, 2], self.zlim[0], self.zlim[1])  # Clip z values
 
-            # Redraw the canvas
-            self.canvas.draw()
+        # Update the live trajectory to store only the latest point
+        self.live_trajectory = new_point  # Replace the previous point with the new one
 
-            self.animation_step += 1
-        else:
-            # Reset to the original position
-            self.ax.view_init(elev=self.original_elev, azim=self.original_azim)
-            self.ax.set_xlim(self.original_xlim)
-            self.ax.set_ylim(self.original_ylim)
-            self.ax.set_zlim(self.original_zlim)
-            self.canvas.draw()
+        # Debug: Print the live trajectory shape and content
+        #print(f"Live trajectory shape: {self.live_trajectory.shape}")
+        #print(f"Live trajectory content: {self.live_trajectory}")
 
-            # Stop the timer
-            self.animation_timer.stop()
-            del self.animation_step  # Reset animation state
+        # Clear the previous live point from the plot
+        if hasattr(self, 'live_point'):
+            self.live_point.remove()  # Remove the previous point
+
+        # Plot the new live point as a single point (e.g., using a scatter plot)
+        self.live_point = self.ax.scatter(
+            self.live_trajectory[:, 0],  # X coordinate
+            self.live_trajectory[:, 1],  # Y coordinate
+            self.live_trajectory[:, 2],  # Z coordinate
+            color='yellow',  # Color of the point
+            s=50,  # Size of the point
+            label="Live"  # Label for the legend
+        )
+
+        # Redraw the canvas
+        self.canvas.draw()
+
 
     def _createTargetMetricsBox(self, layout):
         """Create the Target Metrics box."""
