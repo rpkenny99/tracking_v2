@@ -108,6 +108,7 @@ def update_realtime_plot(x, y, z):
 
 def DisplayFrame(frame):
     cv2.imshow("preview", frame)
+    cv2.waitKey(1)
 
 def transform_to_world(rVec, tVec, rVec_origin=REFERENCE_RVEC, tVec_origin=REFERENCE_TVEC):
     """
