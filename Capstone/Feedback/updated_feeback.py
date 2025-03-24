@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from queue import Queue
+from SignalProcessing.compute_avg_std_dev import get_mean_std_bounds, STD_ACCEPTABLE
 
 import matplotlib
 # Hide debug messages (only show warnings and above)
@@ -180,6 +181,8 @@ class FeedbackUI(QMainWindow):
         self.setWindowTitle("Feedback UI - Needle Insertion")
         self.showFullScreen()  # Make the window maximized
 
+        self.live_trajectory_queue = Queue()
+
         # Store the selected vein and insertion point
         self.selected_vein = selected_vein
         self.selected_point = selected_point
@@ -188,6 +191,10 @@ class FeedbackUI(QMainWindow):
         self.app_to_signal_processing = app_to_signal_processing
 
         self.expert_pitch, _, self.expert_yaw, self.expert_pitch_std, _, self.expert_yaw_std = angle_range_queue.get()
+
+        # Define initial view parameters for the 3D plot
+        self.original_elev = 30  # Default elevation
+        self.original_azim = -60  # Default azimuth
 
         # Debug statements
         print(f"FeedbackUI - Selected Vein: {self.selected_vein}")
@@ -423,7 +430,7 @@ class FeedbackUI(QMainWindow):
         # Add the canvas to the layout
         layout.addWidget(self.canvas, alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
 
-        # Plot the veins
+        # Plot the veins using the copied functions
         self.ax = self.figure.add_subplot(111, projection='3d')
         self.ax.grid(False)  # Remove the grid
 
@@ -448,60 +455,87 @@ class FeedbackUI(QMainWindow):
         self.ax.yaxis.line.set_alpha(0)
         self.ax.zaxis.line.set_alpha(0)
 
-        # Load and plot left vein
-        left_vein_file = "Capstone/Feedback/leftveinvein2_smoothed4.xlsx"
-        left_data = pd.read_excel(left_vein_file)
-        Tx_left, Ty_left, Tz_left = left_data['Tx'].to_numpy(), left_data['Ty'].to_numpy(), left_data['Tz'].to_numpy()
-        threshold = -1e10
-        valid_indices_left = (Tx_left > threshold) & (Ty_left > threshold) & (Tz_left > threshold)
-        Tx_left, Ty_left, Tz_left = Tx_left[valid_indices_left], Ty_left[valid_indices_left], Tz_left[valid_indices_left]
+        # Get the mean trajectory, upper bound, and lower bound
+        (mean_traj, upper_bound, lower_bound), trajectories = get_mean_std_bounds()
 
-        # Scale the Tx, Ty, and Tz values by 2 to stretch the veins along all axes
-        Tx_left = Tx_left * 2
-        Ty_left = Ty_left * 2
-        Tz_left = Tz_left * 2
+        # Plot the mean trajectory and bounds
+        self.ax.plot(mean_traj[:, 0], mean_traj[:, 1], mean_traj[:, 2], 'w-', label="Mean")
+        self.ax.plot(upper_bound[:, 0], upper_bound[:, 1], upper_bound[:, 2], 'r--', label=f"Upper Bound (+{STD_ACCEPTABLE}σ)")
+        self.ax.plot(lower_bound[:, 0], lower_bound[:, 1], lower_bound[:, 2], 'b--', label=f"Lower Bound (-{STD_ACCEPTABLE}σ)")
 
-        points_left = np.vstack((Tx_left, Ty_left, Tz_left)).T
-        self.ax.plot(points_left[:, 0], points_left[:, 1], points_left[:, 2], 'b', label="Left Vein")
+        # Initialize live trajectory (empty at first)
+        self.live_trajectory = np.empty((0, 3))  # Empty array to store live data points
+        self.live_line, = self.ax.plot([], [], [], 'y-', label="Live")  # Yellow line for live data
 
-        # Load and plot right vein
-        right_vein_file = "Capstone/Feedback/rightvein2.xlsx"
-        right_data = pd.read_excel(right_vein_file)
-        Tx_right, Ty_right, Tz_right = right_data['Tx'].to_numpy(), right_data['Ty'].to_numpy(), right_data['Tz'].to_numpy()
-        valid_indices_right = (Tx_right > threshold) & (Ty_right > threshold) & (Tz_right > threshold)
-        Tx_right, Ty_right, Tz_right = Tx_right[valid_indices_right], Ty_right[valid_indices_right], Tz_right[valid_indices_right]
-
-        # Scale the Tx, Ty, and Tz values by 2 to stretch the veins along all axes
-        Tx_right = Tx_right * 2
-        Ty_right = Ty_right * 2
-        Tz_right = Tz_right * 2
-
-        points_right = np.vstack((Tx_right, Ty_right, Tz_right)).T
-        self.ax.plot(points_right[:, 0], points_right[:, 1], points_right[:, 2], 'r', label="Right Vein")
-
-        # Remove title and legend
+        # Remove title
         self.ax.set_title("")
-        self.ax.legend().set_visible(False)
+
+        # Add a legend and move it outside the plot
+        legend = self.ax.legend(loc='upper left', bbox_to_anchor=(0.8, 1), title="Legend")
+        legend.set_visible(True)
 
         # Ensure the entire figure and axes background are transparent
         self.ax.set_facecolor('none')
         self.figure.patch.set_alpha(0)  # Make entire figure transparent
 
-        # Store the original view and axis limits
-        self.original_elev = 30  # Default elevation
-        self.original_azim = -60  # Default azimuth
-        self.original_xlim = self.ax.get_xlim()
-        self.original_ylim = self.ax.get_ylim()
-        self.original_zlim = self.ax.get_zlim()
+        # Store the axis limits from the mean trajectory
+        self.xlim = self.ax.get_xlim()  # Store x-axis limits
+        self.ylim = self.ax.get_ylim()  # Store y-axis limits
+        self.zlim = self.ax.get_zlim()  # Store z-axis limits
+
+        # Debug: Print the axis limits
+        print(f"X-axis limits: {self.xlim}")
+        print(f"Y-axis limits: {self.ylim}")
+        print(f"Z-axis limits: {self.zlim}")
 
         # Set the initial view
         self.ax.view_init(elev=self.original_elev, azim=self.original_azim)
         self.canvas.draw()
 
-        # Start the animation after 2 seconds
-        self.animation_timer = QTimer()
-        self.animation_timer.timeout.connect(self._animatePlot)
-        self.animation_timer.start(2000)  # 2-second delay
+        # Start a timer for live updates
+        self.live_update_timer = QTimer()
+        self.live_update_timer.timeout.connect(self._updateLiveTrajectory)
+        self.live_update_timer.start(10)  # Update every 10 ms
+
+    def _updateLiveTrajectory(self):
+        """Update the live trajectory with new data points."""
+        # Simulate fetching new data points from the tracking system
+        # Replace this with actual data from your tracking system
+        if self.live_trajectory_queue.empty():
+            return
+        new_point = self.live_trajectory_queue.get()
+
+        # Debug: Print the new point
+        #print(f"New point: {new_point}")
+
+        # Normalize the new point to fit within the axis limits
+        new_point[0] = np.clip(new_point[0], self.xlim[0], self.xlim[1])  # Clip x values
+        new_point[1] = np.clip(new_point[1], self.ylim[0], self.ylim[1])  # Clip y values
+        new_point[2] = np.clip(new_point[2], self.zlim[0], self.zlim[1])  # Clip z values
+
+        # Update the live trajectory to store only the latest point
+        self.live_trajectory = new_point  # Replace the previous point with the new one
+
+        # Debug: Print the live trajectory shape and content
+        #print(f"Live trajectory shape: {self.live_trajectory.shape}")
+        #print(f"Live trajectory content: {self.live_trajectory}")
+
+        # Clear the previous live point from the plot
+        if hasattr(self, 'live_point'):
+            self.live_point.remove()  # Remove the previous point
+
+        # Plot the new live point as a single point (e.g., using a scatter plot)
+        self.live_point = self.ax.scatter(
+            self.live_trajectory[0],  # X coordinate
+            self.live_trajectory[1],  # Y coordinate
+            self.live_trajectory[2],  # Z coordinate
+            color='yellow',  # Color of the point
+            s=50,  # Size of the point
+            label="Live"  # Label for the legend
+        )
+
+        # Redraw the canvas
+        self.canvas.draw()
 
     def _animatePlot(self):
         """Animate the plot by rotating and panning, then return to the original position."""
@@ -603,6 +637,7 @@ class FeedbackUI(QMainWindow):
             return
         
         x, y, z, pitch, roll, yaw = data
+        self.live_trajectory_queue.put([x, y, z])
 
         simulated_position = f"({x:.2f}, {y:.2f}, {z:.2f})"
         simulated_elevation = pitch

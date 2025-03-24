@@ -76,10 +76,10 @@ def monitor(filtered, sig_processed, app_to_signal_processing, angle_range_queue
             print("Ending Signal Processing...\n")
             simulation_running_queue.put(0)
 
+            time.sleep(2)
+
             remove_first_n_lines(r"Capstone/Filter/filtered_data.txt", lock, 10)
-
-            time.sleep(1)
-
+         
             # Call Dynamic Time Warping
             compute_dtw(fp, lock)
 
