@@ -42,8 +42,8 @@ first_data = True
 
 MARKER_SIZE = 11.77
 MARKER_SIZE_ORIGIN = 50.8
-REFERENCE_RVEC = np.array([1.67711633,  1.37191476, -0.99752945])
-REFERENCE_TVEC = np.array([-21.77837191,  33.11065897, 513.24550449])
+REFERENCE_RVEC = np.array([1.52625861,  1.53221375, -0.8358735])
+REFERENCE_TVEC = np.array([-22.70872367,  41.88595264, 498.86856512])
 FPS = 30
 TIME_PER_FRAME = 1/FPS
 
@@ -467,7 +467,7 @@ def ProcessFrame_2(frame, file):
 
             #     rotation, translation = transform_to_world(rVec[i], tVec[i])
             #     print(f"{id=}: {rotation=}, {translation=}")
-                print(f"{id=}: {rVec[i]=}, {tVec[i]=}")
+                # print(f"{id=}: {rVec[i]=}, {tVec[i]=}")
 
         if no_origin:
             return frame, [None, None, None, None, None, None]

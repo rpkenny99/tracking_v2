@@ -13,6 +13,8 @@ from Projection.imgProj10 import start
 import time
 logging.basicConfig(format='%(levelname)s - %(asctime)s.%(msecs)03d: %(message)s',datefmt='%H:%M:%S', level=logging.DEBUG)
 
+from multiprocessing import Lock
+
 def display(msg):
     threadname = threading.current_thread().name
     processname = multiprocessing.current_process().name
@@ -44,9 +46,16 @@ def main():
     angle_range_queue = Queue()
     simulation_running_queue = Queue()
 
+    file_lock = Lock()
+
     raw_tracking = Thread(target=startTracking, args=[raw, tracking_ready], daemon=True)
-    filter = Thread(target=process_file_2, args=[raw, filtered, simulation_running_queue], daemon=True)
-    feedback_monitor = Thread(target=monitor, args=[filtered, sig_processed, app_to_signal_processing, angle_range_queue, simulation_running_queue], daemon=True)
+    filter = Thread(target=process_file_2, args=[raw, filtered, simulation_running_queue, file_lock], daemon=True)
+    feedback_monitor = Thread(target=monitor, args=[filtered,
+                                                    sig_processed,
+                                                    app_to_signal_processing,
+                                                    angle_range_queue,
+                                                    simulation_running_queue,
+                                                    file_lock], daemon=True)
     # signal_processing = Thread(target=sig_processing, args=[filtered, sig_processed, app_to_signal_processing, angle_range_queue], daemon=True)
 
     raw_tracking.start()

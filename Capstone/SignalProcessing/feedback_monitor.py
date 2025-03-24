@@ -3,6 +3,16 @@ from threading import Thread
 from queue import Queue
 from DTW.DTW_working import compute_dtw
 import os
+import time
+
+def remove_first_n_lines(file_path, file_lock, n=10):
+    with file_lock:
+        with open(file_path, 'r') as file:
+            lines = file.readlines()
+
+        if len(lines) > n:
+            with open(file_path, 'w') as file:
+                file.writelines(lines[n:])
 
 def load_angle_stats(filepath):
     with open(filepath, 'r') as f:
@@ -45,7 +55,7 @@ def get_average_insertion_and_elevation_angles(fp):
     fp = os.path.join(fp, "angle_stats.txt")
     return load_angle_stats(fp)
 
-def monitor(filtered, sig_processed, app_to_signal_processing, angle_range_queue, simulation_running_queue):
+def monitor(filtered, sig_processed, app_to_signal_processing, angle_range_queue, simulation_running_queue, lock):
     """
     Receives live trajectory data, finds the closest mean trajectory point, and 
     checks if it's within the standard deviation bounds.
@@ -66,8 +76,12 @@ def monitor(filtered, sig_processed, app_to_signal_processing, angle_range_queue
             print("Ending Signal Processing...\n")
             simulation_running_queue.put(0)
 
+            remove_first_n_lines(r"Capstone/Filter/filtered_data.txt", lock, 10)
+
+            time.sleep(1)
+
             # Call Dynamic Time Warping
-            compute_dtw(fp)
+            compute_dtw(fp, lock)
 
         else:
             # If any of the setup conditions are none, keep polling for the rest.

@@ -100,17 +100,6 @@ def process_file(file_path, output_file, cutoff_freq=5, sample_time=0.02, monito
     except KeyboardInterrupt:
         print("\nProcessing interrupted by user.")
 
-def remove_first_n_lines(file_path, n=6):
-    """
-    Remove the first `n` lines from a file.
-    """
-    with open(file_path, 'r') as file:
-        lines = file.readlines()
-    
-    if len(lines) > n:
-        with open(file_path, 'w') as file:
-            file.writelines(lines[n:])
-
 buffers = {key: [0, 0, 0] for key in ["x", "y", "z", "roll", "pitch", "yaw"]}
 outputs = {key: [0, 0] for key in ["x", "y", "z", "roll", "pitch", "yaw"]}
 
@@ -120,6 +109,7 @@ filtered_data = {key: [] for key in ["x", "y", "z", "roll", "pitch", "yaw"]}  # 
 def process_file_2(raw_data_queue,
                    filtered_data_queue,
                    simulation_running_queue,
+                   file_lock,
                    output_file=DEFAULT_FILTERED_DATA_FILE_PATH,
                    cutoff_freq=5,
                    sample_time=0.02,
@@ -139,17 +129,19 @@ def process_file_2(raw_data_queue,
             new_val = simulation_running_queue.get_nowait()
             # If we are switching from 0 to 1, open the file in 'w' mode
             if new_val == 1 and simulation_running == 0:
-                if output_fh is not None:
-                    output_fh.close()
-                output_fh = open(output_file, 'w')
-                print("Opened file in write mode (overwrite) because sim_running went 0→1")
+                with file_lock:
+                    if output_fh is not None:
+                        output_fh.close()
+                    output_fh = open(output_file, 'w')
+                    print("Opened file in write mode (overwrite) because sim_running went 0→1")
 
             # If we are switching from 1 to 0, close the file
             elif new_val == 0 and simulation_running == 1:
-                if output_fh is not None:
-                    output_fh.close()
-                    output_fh = None
-                print("Closed file because sim_running went 1→0")
+                with file_lock:
+                    if output_fh is not None:
+                        output_fh.close()
+                        output_fh = None
+                    print("Closed file because sim_running went 1→0")
 
             simulation_running = new_val
         except queue.Empty:
@@ -194,14 +186,14 @@ def process_file_2(raw_data_queue,
                 outputs["roll"][0], outputs["pitch"][0], outputs["yaw"][0],
             ]
         if simulation_running:
-            output_fh.write(" ".join(map(str, filtered_row)) + "\n")
-            output_fh.flush()  # Ensure real-time writing to the file
+            with file_lock:
+                output_fh.write(" ".join(map(str, filtered_row)) + "\n")
+            # output_fh.flush()  # Ensure real-time writing to the file
         if filtered_data_queue.empty():
             filtered_data_queue.put(filtered_row)
 
         # plot_data(raw_data, filtered_data)
         # plot_filtered_and_translated_data("Capstone/Filter/filtered_data.txt", "left_vein_final.txt", "right_vein_final.txt")
-    remove_first_n_lines(output_file, n=10)
 
     filtered_data_queue.put(None)
 

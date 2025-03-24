@@ -244,14 +244,15 @@ def plot_combined_similarity_results(data_df1, data_df2, similarity_scores, refe
     plt.legend(loc="upper right", bbox_to_anchor=(1.15, 1), ncol=2, fontsize="small")
     plt.show()
 
-def compute_dtw(expert_data, trainee_data="Capstone/Filter/filtered_data.txt"):
+def compute_dtw(expert_data, file_lock, trainee_data="Capstone/Filter/filtered_data.txt"):
     # Main program
     input_subdirectory = trainee_data
     reference_subdirectory = expert_data
     average_similarity = []
     
     # input_data_df = load_multidimensional_data_as_dataframe(input_file_list)
-    input_data_df = load_multidimensional_data_as_dataframe(trainee_data)
+    with file_lock:
+        input_data_df = load_multidimensional_data_as_dataframe(trainee_data)
 
     # Loop through each reference dataset in the "reference" subdirectory
     reference_file_list = glob.glob(os.path.join(reference_subdirectory, "filtered_data_*.txt"))
