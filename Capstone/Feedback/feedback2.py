@@ -11,6 +11,72 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from scipy.spatial import cKDTree
+import glob
+import os
+
+STD_ACCEPTABLE = 1
+
+def load_trajectories(file_list):
+    """Loads all trajectory files into a list of NumPy arrays."""
+    return [np.loadtxt(fname) for fname in file_list]
+
+def compute_statistics_spatial(file_list):
+    """
+    Computes mean and standard deviation based on nearest spatial neighbors.
+    Uses filtered_data_1.txt as the reference trajectory.
+    """
+    trajectories = load_trajectories(file_list)
+    
+    # Use the first file as reference
+    ref_traj = trajectories[0]  # filtered_data_1.txt
+
+    spatial_means = []
+    spatial_stds = []
+
+    for ref_idx, ref_point in enumerate(ref_traj):
+        matched_points = []  # Store closest points from all other files
+
+        for traj in trajectories[1:]:  # Skip reference trajectory
+            if len(traj) == 0:
+                continue  # Skip empty trajectories
+            
+            # Query traj to find which of its points is closest to the current ref_point
+            _, nearest_idx = cKDTree(traj[:, :3]).query(ref_point[:3], k=1)  
+
+            matched_points.append(traj[nearest_idx])  # Store nearest traj point to ref_point
+
+        matched_points = np.vstack(matched_points)  # Convert to NumPy array
+        
+        # Compute mean and standard deviation at this reference point
+        mean_point = np.mean(matched_points, axis=0)
+        std_point = np.std(matched_points, axis=0)
+
+        spatial_means.append(mean_point)
+        spatial_stds.append(std_point)
+
+    # Convert to NumPy arrays
+    mean_traj = np.array(spatial_means)
+    std_traj = np.array(spatial_stds)
+
+    # Scale standard deviation bounds using STD_ACCEPTABLE
+    upper_bound = mean_traj + (STD_ACCEPTABLE * std_traj)
+    lower_bound = mean_traj - (STD_ACCEPTABLE * std_traj)
+
+    return mean_traj, upper_bound, lower_bound
+
+def get_mean_std_bounds():
+    """Retrieve mean, upper, and lower bound trajectories based on spatial proximities."""
+    folder_path = "C:\\Users\\ifiem\\OneDrive\\Documents\\CU\\4th Year First Semester\\Engineering Project\\Code\\calculator\\expert_data"
+    file_list = sorted(glob.glob(os.path.join(folder_path, "filtered_data_*.txt")))
+    
+    # Debug: Print the list of files found
+    print("Files found:", file_list)
+    
+    if not file_list:
+        raise FileNotFoundError(f"No files found in {folder_path} matching the pattern 'filtered_data_*.txt'.")
+    
+    return compute_statistics_spatial(file_list), load_trajectories(file_list)
 
 class IntroScreen(QDialog):
     """Introductory screen to start the simulation."""
@@ -162,8 +228,9 @@ class PickInsertionPointScreen(QDialog):
         self.selected_point = "Point C"
         self.accept()
 
+
 class FeedbackUI(QMainWindow):
-    def __init__(self, selected_vein, selected_point, max_updates=12, update_interval=1000):
+    def __init__(self, selected_vein, selected_point, update_interval=1000):
         super().__init__()
         self.setWindowTitle("Feedback UI - Needle Insertion")
         self.showFullScreen()  # Make the window maximized
@@ -171,6 +238,10 @@ class FeedbackUI(QMainWindow):
         # Store the selected vein and insertion point
         self.selected_vein = selected_vein
         self.selected_point = selected_point
+
+        # Define initial view parameters for the 3D plot
+        self.original_elev = 30  # Default elevation
+        self.original_azim = -60  # Default azimuth
 
         # Debug statements
         print(f"FeedbackUI - Selected Vein: {self.selected_vein}")
@@ -184,7 +255,6 @@ class FeedbackUI(QMainWindow):
 
         self.sessionLog = []
         self.update_count = 0
-        self.max_updates = max_updates
         self.total_angle_deviation = 0  # To accumulate angle deviation
         self.total_depth_deviation = 0  # To accumulate depth deviation
 
@@ -205,13 +275,50 @@ class FeedbackUI(QMainWindow):
         # Create the Target Metrics box first
         self._createTargetMetricsBox(leftLayout)
 
-        # Circle Indicator
+        # Container for circle indicators and labels
+        circleContainer = QHBoxLayout()
+        
+        # First Circle Indicator (Green)
         self.circleIndicator = QLabel(self)
         self.circleIndicator.setFixedSize(100, 100)  # Set the size of the circle
         self.circleIndicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._updateCircleIndicator(0)  # Initialize with default values
-        leftLayout.addWidget(self.circleIndicator)
 
+        # Label for Angle of Insertion (Green Circle)
+        angleLabel = QLabel("Angle of Insertion")
+        angleLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        angleLabel.setStyleSheet("font-weight: bold;")  # Optional: Make the label bold
+
+        # Vertical layout for Green Circle and its label
+        greenCircleLayout = QVBoxLayout()
+        greenCircleLayout.addWidget(self.circleIndicator)
+        greenCircleLayout.addWidget(angleLabel)
+        greenCircleLayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        circleContainer.addLayout(greenCircleLayout)
+
+        # Second Circle Indicator (Blue)
+        self.circleIndicator2 = QLabel(self)
+        self.circleIndicator2.setFixedSize(100, 100)  # Set the size of the circle
+        self.circleIndicator2.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._updateCircleIndicator2(0)  # Initialize with default values
+
+        # Label for Elevation (Blue Circle)
+        elevationLabel = QLabel("Elevation")
+        elevationLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        elevationLabel.setStyleSheet("font-weight: bold;")  # Optional: Make the label bold
+
+        # Vertical layout for Blue Circle and its label
+        blueCircleLayout = QVBoxLayout()
+        blueCircleLayout.addWidget(self.circleIndicator2)
+        blueCircleLayout.addWidget(elevationLabel)
+        blueCircleLayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        circleContainer.addLayout(blueCircleLayout)
+
+        leftLayout.addLayout(circleContainer)
+
+        # Rest of the UI setup remains unchanged...
         armImageLayout = QHBoxLayout()
         armImageLayout.addStretch()
 
@@ -249,9 +356,6 @@ class FeedbackUI(QMainWindow):
         self.arm_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         leftLayout.addWidget(self.arm_image_label)
 
-        # Rest of the UI setup remains unchanged...
-        # Rest of the UI setup remains unchanged...
-
         leftLayout.addLayout(armImageLayout)
 
         # Directional arrows (GIFs)
@@ -276,8 +380,8 @@ class FeedbackUI(QMainWindow):
         self.arrow_right.setVisible(False)
 
         # Position Arrows (overlayed)
-        self.arrow_up.move(400, 55)  # Adjust position as needed
-        self.arrow_down.move(400, 300)
+        self.arrow_up.move(400, 40)  # Adjust position as needed
+        self.arrow_down.move(400, 235)
         self.arrow_left.move(220, 180)
         self.arrow_right.move(565, 180)
 
@@ -315,9 +419,9 @@ class FeedbackUI(QMainWindow):
         self.restartButton.clicked.connect(self._restartSimulation)
         buttonLayout.addWidget(self.restartButton)
 
-        self.logButton = QPushButton("Log Data")
-        self.logButton.clicked.connect(self._logSessionData)
-        buttonLayout.addWidget(self.logButton)
+        self.endSimulationButton = QPushButton("End Simulation")
+        self.endSimulationButton.clicked.connect(self._endSimulation)
+        buttonLayout.addWidget(self.endSimulationButton)
 
         rightLayout.addLayout(buttonLayout)
 
@@ -327,6 +431,34 @@ class FeedbackUI(QMainWindow):
         # Add layouts to the general layout
         self.generalLayout.addLayout(leftLayout, 1)  # Assign more weight to the left layout
         self.generalLayout.addLayout(rightLayout)
+
+    def _updateCircleIndicator2(self, angle):
+        """Update the second circle indicator with the current angle and color."""
+        target_angle = float(self.targetAngle.text())
+        deviation = abs(angle - target_angle)
+        #color = QColor("blue") if deviation <= 1.5 else QColor("orange")  # Use different colors for distinction
+        color = QColor("green") if deviation <= 1.5 else QColor("orange") if deviation < 2.5 else QColor("red")
+
+
+        # Create a pixmap to draw the circle
+        pixmap = QPixmap(self.circleIndicator2.size())
+        pixmap.fill(Qt.GlobalColor.transparent)
+
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(color)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(0, 0, 100, 100)
+
+        # Draw the angle text
+        painter.setPen(QColor("white"))
+        font = QFont()
+        font.setPointSize(16)
+        painter.setFont(font)
+        painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, f"{angle:.1f}°")
+        painter.end()
+
+        self.circleIndicator2.setPixmap(pixmap)
 
     def _plotVeins(self, layout):
         """Plot the vein visualization using matplotlib and overlay it on the black area."""
@@ -341,7 +473,7 @@ class FeedbackUI(QMainWindow):
         # Add the canvas to the layout
         layout.addWidget(self.canvas, alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
 
-        # Plot the veins
+        # Plot the veins using the copied functions
         self.ax = self.figure.add_subplot(111, projection='3d')
         self.ax.grid(False)  # Remove the grid
 
@@ -366,63 +498,89 @@ class FeedbackUI(QMainWindow):
         self.ax.yaxis.line.set_alpha(0)
         self.ax.zaxis.line.set_alpha(0)
 
-        # Load and plot left vein
-        left_vein_file = "leftveinvein2_smoothed4.xlsx"
-        left_data = pd.read_excel(left_vein_file)
-        Tx_left, Ty_left, Tz_left = left_data['Tx'].to_numpy(), left_data['Ty'].to_numpy(), left_data['Tz'].to_numpy()
-        threshold = -1e10
-        valid_indices_left = (Tx_left > threshold) & (Ty_left > threshold) & (Tz_left > threshold)
-        Tx_left, Ty_left, Tz_left = Tx_left[valid_indices_left], Ty_left[valid_indices_left], Tz_left[valid_indices_left]
+        # Get the mean trajectory, upper bound, and lower bound
+        (mean_traj, upper_bound, lower_bound), trajectories = get_mean_std_bounds()
 
-        # Scale the Tx, Ty, and Tz values by 2 to stretch the veins along all axes
-        Tx_left = Tx_left * 2
-        Ty_left = Ty_left * 2
-        Tz_left = Tz_left * 2
+        # Plot the mean trajectory and bounds
+        self.ax.plot(mean_traj[:, 0], mean_traj[:, 1], mean_traj[:, 2], 'w-', label="Mean")
+        self.ax.plot(upper_bound[:, 0], upper_bound[:, 1], upper_bound[:, 2], 'r--', label=f"Upper Bound (+{STD_ACCEPTABLE}σ)")
+        self.ax.plot(lower_bound[:, 0], lower_bound[:, 1], lower_bound[:, 2], 'b--', label=f"Lower Bound (-{STD_ACCEPTABLE}σ)")
 
-        points_left = np.vstack((Tx_left, Ty_left, Tz_left)).T
-        self.ax.plot(points_left[:, 0], points_left[:, 1], points_left[:, 2], 'b', label="Left Vein")
+        # Initialize live trajectory (empty at first)
+        self.live_trajectory = np.empty((0, 3))  # Empty array to store live data points
+        self.live_line, = self.ax.plot([], [], [], 'y-', label="Live")  # Yellow line for live data
 
-        # Load and plot right vein
-        right_vein_file = "rightvein2.xlsx"
-        right_data = pd.read_excel(right_vein_file)
-        Tx_right, Ty_right, Tz_right = right_data['Tx'].to_numpy(), right_data['Ty'].to_numpy(), right_data['Tz'].to_numpy()
-        valid_indices_right = (Tx_right > threshold) & (Ty_right > threshold) & (Tz_right > threshold)
-        Tx_right, Ty_right, Tz_right = Tx_right[valid_indices_right], Ty_right[valid_indices_right], Tz_right[valid_indices_right]
-
-        # Scale the Tx, Ty, and Tz values by 2 to stretch the veins along all axes
-        Tx_right = Tx_right * 2
-        Ty_right = Ty_right * 2
-        Tz_right = Tz_right * 2
-
-        points_right = np.vstack((Tx_right, Ty_right, Tz_right)).T
-        self.ax.plot(points_right[:, 0], points_right[:, 1], points_right[:, 2], 'r', label="Right Vein")
-
-        # Remove title and legend
+        # Remove title
         self.ax.set_title("")
-        self.ax.legend().set_visible(False)
+
+        # Add a legend and move it outside the plot
+        legend = self.ax.legend(loc='upper left', bbox_to_anchor=(0.8, 1), title="Legend")
+        legend.set_visible(True)
 
         # Ensure the entire figure and axes background are transparent
         self.ax.set_facecolor('none')
         self.figure.patch.set_alpha(0)  # Make entire figure transparent
 
-        # Store the original view and axis limits
-        self.original_elev = 30  # Default elevation
-        self.original_azim = -60  # Default azimuth
-        self.original_xlim = self.ax.get_xlim()
-        self.original_ylim = self.ax.get_ylim()
-        self.original_zlim = self.ax.get_zlim()
+        # Store the axis limits from the mean trajectory
+        self.xlim = self.ax.get_xlim()  # Store x-axis limits
+        self.ylim = self.ax.get_ylim()  # Store y-axis limits
+        self.zlim = self.ax.get_zlim()  # Store z-axis limits
+
+        # Debug: Print the axis limits
+        print(f"X-axis limits: {self.xlim}")
+        print(f"Y-axis limits: {self.ylim}")
+        print(f"Z-axis limits: {self.zlim}")
 
         # Set the initial view
         self.ax.view_init(elev=self.original_elev, azim=self.original_azim)
         self.canvas.draw()
 
-        # Start the animation after 2 seconds
-        self.animation_timer = QTimer()
-        self.animation_timer.timeout.connect(self._animatePlot)
-        self.animation_timer.start(2000)  # 2-second delay
+        # Start a timer for live updates
+        self.live_update_timer = QTimer()
+        self.live_update_timer.timeout.connect(self._updateLiveTrajectory)
+        self.live_update_timer.start(500)  # Update every 500 ms
 
+    def _updateLiveTrajectory(self):
+        """Update the live trajectory with new data points."""
+        # Simulate fetching new data points from the tracking system
+        # Replace this with actual data from your tracking system
+        new_point = np.array([[uniform(180, 200), uniform(45, 80), uniform(30, 55)]])
+
+        # Debug: Print the new point
+        #print(f"New point: {new_point}")
+
+        # Normalize the new point to fit within the axis limits
+        new_point[:, 0] = np.clip(new_point[:, 0], self.xlim[0], self.xlim[1])  # Clip x values
+        new_point[:, 1] = np.clip(new_point[:, 1], self.ylim[0], self.ylim[1])  # Clip y values
+        new_point[:, 2] = np.clip(new_point[:, 2], self.zlim[0], self.zlim[1])  # Clip z values
+
+        # Update the live trajectory to store only the latest point
+        self.live_trajectory = new_point  # Replace the previous point with the new one
+
+        # Debug: Print the live trajectory shape and content
+        #print(f"Live trajectory shape: {self.live_trajectory.shape}")
+        #print(f"Live trajectory content: {self.live_trajectory}")
+
+        # Clear the previous live point from the plot
+        if hasattr(self, 'live_point'):
+            self.live_point.remove()  # Remove the previous point
+
+        # Plot the new live point as a single point (e.g., using a scatter plot)
+        self.live_point = self.ax.scatter(
+            self.live_trajectory[:, 0],  # X coordinate
+            self.live_trajectory[:, 1],  # Y coordinate
+            self.live_trajectory[:, 2],  # Z coordinate
+            color='yellow',  # Color of the point
+            s=50,  # Size of the point
+            label="Live"  # Label for the legend
+        )
+
+        # Redraw the canvas
+        self.canvas.draw()
+
+    """
     def _animatePlot(self):
-        """Animate the plot by rotating and panning, then return to the original position."""
+        #Animate the plot by rotating and panning, then return to the original position
         if not hasattr(self, 'animation_step'):
             # Initialize animation parameters
             self.animation_step = 0
@@ -457,7 +615,8 @@ class FeedbackUI(QMainWindow):
             # Stop the timer
             self.animation_timer.stop()
             del self.animation_step  # Reset animation state
-
+    """
+            
     def _createTargetMetricsBox(self, layout):
         """Create the Target Metrics box."""
         self.groupBox = QGroupBox("Target Metrics")
@@ -481,7 +640,8 @@ class FeedbackUI(QMainWindow):
         """Update the circle indicator with the current angle and color."""
         target_angle = float(self.targetAngle.text())
         deviation = abs(angle - target_angle)
-        color = QColor("green") if deviation <= 1.5 else QColor("red")
+        #color = QColor("green") if deviation <= 1.5 else QColor("red")
+        color = QColor("green") if deviation <= 1.5 else QColor("orange") if deviation < 2.5 else QColor("red")
 
         # Create a pixmap to draw the circle
         pixmap = QPixmap(self.circleIndicator.size())
@@ -505,31 +665,31 @@ class FeedbackUI(QMainWindow):
 
     def _updateData(self):
         """Simulate data updates and display feedback for needle guidance."""
-        if self.update_count >= self.max_updates:
-            self.timer.stop()
-            self.promptsLog.append("Simulation complete.")
-            self._showSummaryPage()
-            return
-
+        # Simulate new data
         simulated_position = f"({uniform(-5, 5):.2f}, {uniform(-5, 5):.2f}, {uniform(-5, 5):.2f})"
-        simulated_angle = uniform(25, 31)
+        simulated_angle = uniform(25, 35)
         simulated_depth = uniform(40, 51)
 
+        # Update the UI with the new data
         self.positionInput.setText(simulated_position)
         self.angleInput.setText(f"{simulated_angle:.2f}")
         self.depthInput.setText(f"{simulated_depth:.2f}")
 
+        # Generate feedback based on the new data
         feedback = self._generateFeedback(simulated_position, simulated_angle, simulated_depth)
         self.promptsLog.append(f"Update {self.update_count + 1}: {feedback}")
 
+        # Calculate deviations from the target
         target_angle = float(self.targetAngle.text())
         target_depth = float(self.targetDepth.text())
         self.total_angle_deviation += abs(simulated_angle - target_angle)
         self.total_depth_deviation += abs(simulated_depth - target_depth)
 
-        # Update the circle indicator
+        # Update the circle indicators
         self._updateCircleIndicator(simulated_angle)
+        self._updateCircleIndicator2(simulated_angle)
 
+        # Increment the update count
         self.update_count += 1
 
     def _setArrowVisibility(self, direction, is_visible):
@@ -605,17 +765,22 @@ class FeedbackUI(QMainWindow):
         with open("session_log.txt", "a") as file:
             file.write(session_data)
 
+    def _endSimulation(self):
+        """End the simulation and show the summary page."""
+        self.timer.stop()
+        self._showSummaryPage()
+
     def _showSummaryPage(self):
         """Display the summary of the simulation."""
-        angle_error = self.total_angle_deviation / self.max_updates
-        depth_error = self.total_depth_deviation / self.max_updates
+        angle_error = self.total_angle_deviation / (self.update_count if self.update_count > 0 else 1)
+        depth_error = self.total_depth_deviation / (self.update_count if self.update_count > 0 else 1)
 
         score = max(0, 10 - (angle_error + depth_error) / 10)
         score = round(score, 2)
 
         if score == 10:
             feedback = ("Excellent performance! Your actions demonstrate a high level of accuracy and precision." 
-                       "Maintain this level of focus and attention to detail in future tasks. Great job!")
+                    "Maintain this level of focus and attention to detail in future tasks. Great job!")
         elif score >= 7:
             feedback = ("Good performance! You show a solid understanding of the task, but there are occasional minor errors."
                         "To improve further, double-check your movements or decisions to ensure consistency. " 
@@ -640,12 +805,34 @@ class FeedbackUI(QMainWindow):
         dialog_layout.addWidget(QLabel(f"Final Score: {score}/10"))
         dialog_layout.addWidget(QLabel(feedback))
 
-        close_button = QPushButton("Close")
-        close_button.clicked.connect(dialog.accept)
-        dialog_layout.addWidget(close_button)
+        # Button to return to the IntroScreen
+        returnToIntroButton = QPushButton("Return to Start")
+        returnToIntroButton.clicked.connect(lambda: self._returnToIntroScreen(dialog))
+        dialog_layout.addWidget(returnToIntroButton)
 
         dialog.setLayout(dialog_layout)
         dialog.exec()
+
+    def _returnToIntroScreen(self, dialog):
+        """Return to the IntroScreen and restart the application flow."""
+        dialog.close()  # Close the summary dialog
+        self.close()    # Close the FeedbackUI window
+
+        # Re-launch the intro screen
+        intro_screen = IntroScreen()
+        if intro_screen.exec() == QDialog.DialogCode.Accepted:
+            vein_screen = PickVeinScreen()
+            if vein_screen.exec() == QDialog.DialogCode.Accepted:
+                selected_vein = vein_screen.selected_vein
+
+                insertion_point_screen = PickInsertionPointScreen(selected_vein)
+                if insertion_point_screen.exec() == QDialog.DialogCode.Accepted:
+                    selected_insertion_point = insertion_point_screen.selected_point
+
+                    # Relaunch Feedback UI
+                    self.feedback_ui = FeedbackUI(selected_vein, selected_insertion_point)
+                    self.feedback_ui.show()
+
 
 class MainApplication:
     """Manages the flow of the application."""
@@ -673,7 +860,8 @@ class MainApplication:
                     # Launch Feedback UI with selected vein and insertion point
                     feedback_ui = FeedbackUI(self.selected_vein, self.selected_insertion_point)
                     feedback_ui.show()
-                    sys.exit(self.app.exec())
+                    self.app.exec()  # Run the application event loop without exiting
+
 
 if __name__ == "__main__":
     main_app = MainApplication()
