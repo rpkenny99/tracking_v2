@@ -226,6 +226,29 @@ class FeedbackUI(QMainWindow):
 
     def _createDisplay(self):
         """Create the UI layout with the updated design."""
+        # Session Timer in top-left corner
+        self.session_time_label = QLabel("00:00", self)
+        self.session_time_label.setStyleSheet("""
+            QLabel {
+                background-color: rgba(0, 0, 0, 150);
+                color: white;
+                font-size: 32px;
+                font-weight: bold;
+                padding: 5px 10px;
+                border-radius: 5px;
+            }
+        """)
+        self.session_time_label.move(10, 10)
+        self.session_time_label.adjustSize()
+        self.session_time_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.session_time_label.show()
+
+        # Timer logic
+        self.elapsed_seconds = 0
+        self.session_timer = QTimer()
+        self.session_timer.timeout.connect(self._updateSessionTimer)
+        self.session_timer.start(1000)  # Update every second
+
         leftLayout = QVBoxLayout()
 
         # Create the Target Metrics box first
@@ -401,6 +424,15 @@ class FeedbackUI(QMainWindow):
         self.generalLayout.addLayout(leftLayout, 1)  # Assign more weight to the left layout
         self.generalLayout.addLayout(rightLayout)
 
+        self.session_time_label.raise_()
+
+    def _updateSessionTimer(self):
+        """Update the session timer each second."""
+        self.elapsed_seconds += 1
+        minutes = self.elapsed_seconds // 60
+        seconds = self.elapsed_seconds % 60
+        self.session_time_label.setText(f"{minutes:02d}:{seconds:02d}")
+
     def _updateCircleIndicator2(self, angle):
         """Update the second circle indicator with the current angle and color."""
         target_angle = float(self.targetAngle.text())
@@ -489,13 +521,13 @@ class FeedbackUI(QMainWindow):
         (mean_traj, upper_bound, lower_bound), trajectories = get_mean_std_bounds()
 
         # Plot the mean trajectory and bounds
-        self.ax.plot(mean_traj[:, 0], mean_traj[:, 1], mean_traj[:, 2], 'w-', label="Mean")
-        self.ax.plot(upper_bound[:, 0], upper_bound[:, 1], upper_bound[:, 2], 'r--', label=f"Upper Bound (+{STD_ACCEPTABLE}σ)")
-        self.ax.plot(lower_bound[:, 0], lower_bound[:, 1], lower_bound[:, 2], 'b--', label=f"Lower Bound (-{STD_ACCEPTABLE}σ)")
+        self.ax.plot(mean_traj[:, 0], mean_traj[:, 1], mean_traj[:, 2], 'white', label="Mean")
+        self.ax.plot(upper_bound[:, 0], upper_bound[:, 1], upper_bound[:, 2], 'yellow', label=f"Upper Bound (+{STD_ACCEPTABLE}σ)")
+        self.ax.plot(lower_bound[:, 0], lower_bound[:, 1], lower_bound[:, 2], 'orange', label=f"Lower Bound (-{STD_ACCEPTABLE}σ)")
 
         # Initialize live trajectory (empty at first)
         self.live_trajectory = np.empty((0, 3))  # Empty array to store live data points
-        self.live_line, = self.ax.plot([], [], [], 'y-', label="Live")  # Yellow line for live data
+        self.live_line, = self.ax.plot([], [], [], 'deepskyblue', label="Live")  # Yellow line for live data
 
         # Remove title
         self.ax.set_title("")
@@ -644,7 +676,7 @@ class FeedbackUI(QMainWindow):
             trajectory_array[:, 0],
             trajectory_array[:, 1],
             trajectory_array[:, 2],
-            'y-',  # Yellow line
+            'deepskyblue',  # deepskyblue line
             linewidth=2,
             label="Live"
         )
@@ -654,7 +686,7 @@ class FeedbackUI(QMainWindow):
             new_point[0],
             new_point[1],
             new_point[2],
-            color='yellow',
+            color='deepskyblue',
             s=50,
             label="Current"
         )
