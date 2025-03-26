@@ -19,7 +19,7 @@ def qpixmap_to_numpy(pixmap):
     arr = np.array(ptr).reshape(height, width, 4)
     return cv2.cvtColor(arr, cv2.COLOR_RGBA2BGR)
 
-def apply_projection_transform(image, angle_deg= -25):
+def apply_projection_transform(image, angle_deg=-25):
     """
     Applies a perspective transformation to simulate a projection plane
     rotated by angle_deg relative to the source screen.
@@ -42,10 +42,10 @@ def apply_projection_transform(image, angle_deg= -25):
     warped = cv2.warpPerspective(image, M, (w, h))
     return warped
 
-def update_display(feedback_ui, angle_deg=-25, scale_factor=0.7):
+def update_display(feedback_ui, angle_deg=-25, scale_factor=0.7, offset_x=0, offset_y=0):
     """
     Capture the updated UI, flip it for reflection, apply the projection transform,
-    resize the result to occupy less space, and then display it centered in the window.
+    resize the result to occupy less space, and then display it with an offset.
     """
     # Capture the current UI as a QPixmap
     pixmap = feedback_ui.grab()
@@ -69,9 +69,9 @@ def update_display(feedback_ui, angle_deg=-25, scale_factor=0.7):
     # Create a blank image (same size as the original window) with black background
     display_image = np.zeros((window_height, window_width, 3), dtype=np.uint8)
 
-    # Calculate the position to center the resized image
-    start_x = (window_width - new_width) // 2
-    start_y = (window_height - new_height) // 2
+    # Calculate the position to center the resized image and then add the offsets
+    start_x = (window_width - new_width) // 2 + offset_x
+    start_y = (window_height - new_height) // 2 + offset_y
 
     # Overlay the resized image onto the blank canvas
     display_image[start_y:start_y+new_height, start_x:start_x+new_width] = resized_image
@@ -92,11 +92,12 @@ def start(sig_processed):
     feedback_ui.show()
 
     # Set up a QTimer to update the projection capture periodically (every 100 ms)
+    # Adjust offset_x and offset_y here to displace the image from the center.
     timer = QTimer()
-    timer.timeout.connect(lambda: update_display(feedback_ui, angle_deg=25))
+    timer.timeout.connect(lambda: update_display(feedback_ui, angle_deg=25, offset_x=100, offset_y=50))
     timer.start(100)  # Update every 100 milliseconds
 
     sys.exit(app.exec())
 
 if __name__ == "__main__":
-    start(sig_processed = Queue())
+    start(sig_processed=Queue())

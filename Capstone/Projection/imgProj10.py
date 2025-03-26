@@ -4,7 +4,7 @@ import numpy as np
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QImage
-from Feedback.feedback3 import FeedbackUI  # Import your UI class
+from feedback3 import FeedbackUI  # Import your UI class
 from queue import Queue
 
 def qpixmap_to_numpy(pixmap):
@@ -19,7 +19,7 @@ def qpixmap_to_numpy(pixmap):
     arr = np.array(ptr).reshape(height, width, 4)
     return cv2.cvtColor(arr, cv2.COLOR_RGBA2BGR)
 
-def apply_projection_transform(image, angle_deg=25):
+def apply_projection_transform(image, angle_deg= -25):
     """
     Applies a perspective transformation to simulate a projection plane
     rotated by angle_deg relative to the source screen.
@@ -81,4 +81,4 @@ def start(sig_processed):
     sys.exit(app.exec())
 
 if __name__ == "__main__":
-    start()
+    start(sig_processed = Queue())

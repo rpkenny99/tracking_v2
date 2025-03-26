@@ -1,71 +1,122 @@
-import pyautogui
-import time
-import os
-from datetime import datetime
-from AppKit import NSWorkspace
-from Quartz import (
-    CGWindowListCopyWindowInfo,
-    kCGWindowListOptionOnScreenOnly,
-    kCGNullWindowID
-)
-
 import sys
-# import os
-sys.path.append(os.path.join("Capstone", "Feedback"))
-from feedback3 import FeedbackUI  # Import UI
+import cv2
+import numpy as np
+from PyQt6.QtCore import QTimer
+from PyQt6.QtWidgets import QApplication, QLabel, QWidget, QHBoxLayout
+from PyQt6.QtGui import QImage, QPixmap
+from feedback3 import FeedbackUI  # Import your UI class
+from queue import Queue
 
+class ProjectionWidget(QLabel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setScaledContents(True)  # Ensure the pixmap scales to the widget size
 
-# Set up the screenshot save directory (relative path)
-save_dir = "UI_Screenshots"
-os.makedirs(save_dir, exist_ok=True)  # Create folder if it doesn't exist
+    # Override mouse event handlers to capture interactivity
+    def mousePressEvent(self, event):
+        print("Mouse pressed at:", event.position().toPoint())
+        super().mousePressEvent(event)
 
-MAX_SCREENSHOTS = 10  # Keep only the last 10 screenshots
+    def mouseMoveEvent(self, event):
+        print("Mouse moved at:", event.position().toPoint())
+        super().mouseMoveEvent(event)
 
-def cleanup_old_screenshots():
-    """Deletes older screenshots, keeping only the latest MAX_SCREENSHOTS."""
-    files = sorted(os.listdir(save_dir), key=lambda f: os.path.getctime(os.path.join(save_dir, f)))  # Sort by creation time
-    while len(files) > MAX_SCREENSHOTS:
-        os.remove(os.path.join(save_dir, files.pop(0)))  # Delete oldest file
+    def mouseReleaseEvent(self, event):
+        print("Mouse released at:", event.position().toPoint())
+        super().mouseReleaseEvent(event)
 
-def get_window_position(title):
-    """Finds the position of a window by its title on macOS."""
-    window_list = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID)
+def qpixmap_to_numpy(pixmap):
+    """
+    Convert a QPixmap to a NumPy array (BGR format for OpenCV).
+    """
+    image = pixmap.toImage().convertToFormat(QImage.Format.Format_RGBA8888)
+    width = image.width()
+    height = image.height()
+    ptr = image.bits()
+    ptr.setsize(height * width * 4)
+    arr = np.array(ptr).reshape(height, width, 4)
+    return cv2.cvtColor(arr, cv2.COLOR_RGBA2BGR)
 
-    for window in window_list:
-        window_title = window.get("kCGWindowName", "")
-        if window_title and title.lower() in window_title.lower():
-            bounds = window.get("kCGWindowBounds", {})
-            return bounds.get("X", 0), bounds.get("Y", 0), bounds.get("Width", 0), bounds.get("Height", 0)
+def apply_projection_transform(image, angle_deg=25):
+    """
+    Applies a perspective transformation to simulate a projection plane
+    rotated by angle_deg relative to the source screen.
+    """
+    h, w = image.shape[:2]
+    angle_rad = np.deg2rad(angle_deg)
+    new_top_width = w * np.cos(angle_rad)
+    offset = (w - new_top_width) / 2
 
-    return None
+    src_pts = np.float32([[0, 0],
+                          [w, 0],
+                          [w, h],
+                          [0, h]])
+    dst_pts = np.float32([[offset, 0],
+                          [w - offset, 0],
+                          [w, h],
+                          [0, h]])
+    
+    M = cv2.getPerspectiveTransform(src_pts, dst_pts)
+    warped = cv2.warpPerspective(image, M, (w, h))
+    return warped
 
-def capture_feedback3_window(interval=1):
-    """Continuously captures screenshots of only the 'feedback3' window on macOS."""
-    try:
-        print(f"Looking for 'feedback3' window...")
-        while True:
-            position = get_window_position("Cyber-Physical Infant IV Simulator")
+def update_display(feedback_ui, projection_widget, angle_deg=25):
+    """
+    Capture the updated UI, flip it for mirror reflection, apply the projection transform,
+    and then update the projection widget with the new image.
+    """
+    # Capture the current UI as a QPixmap
+    pixmap = feedback_ui.grab()
+    # Convert QPixmap to a NumPy array in BGR format
+    original_image = qpixmap_to_numpy(pixmap)
+    
+    # Optionally, resize the image if its dimensions are unexpectedly large.
+    h, w = original_image.shape[:2]
+    max_dim = 3000  # You can adjust this value if needed.
+    if w > max_dim or h > max_dim:
+        scale = max_dim / float(max(w, h))
+        original_image = cv2.resize(original_image, (int(w * scale), int(h * scale)))
+        h, w = original_image.shape[:2]
+    
+    # Flip the image (simulate mirror reflection)
+    flipped_image = cv2.flip(original_image, 0)
+    # Apply the perspective transformation
+    transformed_image = apply_projection_transform(flipped_image, angle_deg=angle_deg)
+    
+    # Convert the transformed image from BGR to RGB for display in Qt
+    transformed_image_rgb = cv2.cvtColor(transformed_image, cv2.COLOR_BGR2RGB)
+    h, w, ch = transformed_image_rgb.shape
+    bytes_per_line = ch * w
+    qimg = QImage(transformed_image_rgb.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+    
+    # Update the projection widget with the new QPixmap
+    projection_widget.setPixmap(QPixmap.fromImage(qimg))
 
-            if position:
-                left, top, width, height = position
-                timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-                screenshot_path = os.path.join(save_dir, f"screenshot_{timestamp}.png")
+def start(sig_processed):
+    app = QApplication(sys.argv)
 
-                # Capture only the window region
-                screenshot = pyautogui.screenshot(region=(left, top, width, height))
-                screenshot.save(screenshot_path)
-                print(f"Saved: {screenshot_path}")
+    # Supply required parameters and a queue for FeedbackUI
+    selected_vein = "Left Vein"
+    selected_point = "Point A"
+    feedback_ui = FeedbackUI(selected_vein, selected_point, work_queue=sig_processed)
+    
+    # Create an instance of our interactive projection widget
+    projection_widget = ProjectionWidget()
 
-                # Cleanup old screenshots
-                cleanup_old_screenshots()
-            else:
-                print("Window 'feedback3' not found! Make sure it's open.")
+    # Create a main container widget to display both the FeedbackUI and the ProjectionWidget side by side
+    main_widget = QWidget()
+    layout = QHBoxLayout()
+    layout.addWidget(feedback_ui)
+    layout.addWidget(projection_widget)
+    main_widget.setLayout(layout)
+    main_widget.show()
 
-            time.sleep(interval)
+    # Set up a QTimer to update the projection display periodically (every 100 ms)
+    timer = QTimer()
+    timer.timeout.connect(lambda: update_display(feedback_ui, projection_widget, angle_deg=25))
+    timer.start(100)
 
-    except KeyboardInterrupt:
-        print("\nScreenshot capture stopped.")
+    sys.exit(app.exec())
 
-# Run the function
 if __name__ == "__main__":
-    capture_feedback3_window(interval=1)
+    start(sig_processed=Queue())
