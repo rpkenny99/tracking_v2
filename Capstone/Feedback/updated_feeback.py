@@ -176,7 +176,8 @@ class FeedbackUI(QMainWindow):
                  update_interval=5,
                  work_queue=None,
                  angle_range_queue=None,
-                 app_to_signal_processing=None):
+                 app_to_signal_processing=None,
+                 direction_intruction_queue = None):
         super().__init__()
         self.setWindowTitle("Feedback UI - Needle Insertion")
         self.showFullScreen()  # Make the window maximized
@@ -189,6 +190,7 @@ class FeedbackUI(QMainWindow):
         self.work_queue = work_queue
         self.angle_range_queue = angle_range_queue
         self.app_to_signal_processing = app_to_signal_processing
+        self.direction_intruction_queue = direction_intruction_queue
 
         self.expert_pitch, _, self.expert_yaw, self.expert_pitch_std, _, self.expert_yaw_std = angle_range_queue.get()
 
@@ -369,13 +371,26 @@ class FeedbackUI(QMainWindow):
 
         # Buttons
         buttonLayout = QHBoxLayout()
-        self.restartButton = QPushButton("Restart")
-        self.restartButton.clicked.connect(self._restartSimulation)
-        buttonLayout.addWidget(self.restartButton)
 
         self.endSimulationButton = QPushButton("End Simulation")
+
+        # Style the button to be big and red
+        self.endSimulationButton.setStyleSheet("""
+            QPushButton {
+                background-color: red;
+                color: white;
+                font-size: 20px;
+                font-weight: bold;
+                padding: 15px 30px;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: white;
+            }
+        """)
+
         self.endSimulationButton.clicked.connect(self._endSimulation)
-        buttonLayout.addWidget(self.endSimulationButton)
+        buttonLayout.addWidget(self.endSimulationButton, alignment=Qt.AlignmentFlag.AlignCenter)
 
         rightLayout.addLayout(buttonLayout)
 
@@ -746,6 +761,11 @@ class FeedbackUI(QMainWindow):
         else:
             return
         
+        if not self.direction_intruction_queue.empty():
+            direction = self.direction_intruction_queue.get()
+        else:
+            direction = None
+        
         x, y, z, pitch, roll, yaw = data
         self.live_trajectory_queue.put([x, y, z])
 
@@ -757,7 +777,7 @@ class FeedbackUI(QMainWindow):
         self.angleInput.setText(f"{simulated_elevation:.2f}")
         self.depthInput.setText(f"{simulated_angle_of_insertion:.2f}")
 
-        feedback = self._generateFeedback(simulated_position, simulated_angle_of_insertion, simulated_elevation)
+        feedback = self._generateFeedback(direction, simulated_angle_of_insertion, simulated_elevation)
         self.promptsLog.append(f"Update {self.update_count + 1}: {feedback}")
 
         target_angle = float(self.targetAngle.text())
@@ -783,11 +803,10 @@ class FeedbackUI(QMainWindow):
         if arrow:
             arrow.setVisible(is_visible)
 
-    def _generateFeedback(self, position, angle, depth):
+    def _generateFeedback(self, direction, angle, depth):
         """Generate feedback based on current and target metrics."""
         target_angle = float(self.targetAngle.text())
         target_depth = float(self.targetDepth.text())
-        x = float(position.strip("()").split(",")[0])
 
         feedback = []
 
@@ -795,25 +814,22 @@ class FeedbackUI(QMainWindow):
         self.arrow_down.setVisible(False)
         self.arrow_left.setVisible(False)
         self.arrow_right.setVisible(False)
-
-        if angle < target_angle and x < 0:
-            feedback.append("Tilt the IV upwards.")
-            self.arrow_up.setVisible(True)
-        elif angle > target_angle:
-            feedback.append("Tilt the IV downwards.")
-            self.arrow_down.setVisible(True)
         
-        if x < 0:
-            feedback.append("Tilt the IV to the left.")
-            self.arrow_left.setVisible(True)
-        elif x > 0:
-            feedback.append("Tilt the IV to the right.")
-            self.arrow_right.setVisible(True)
-
-        if depth < target_depth:
-            feedback.append("Insert the needle a bit deeper.")
-        elif depth > target_depth:
-            feedback.append("Pull the needle out slightly.")
+        if direction is not None:
+            for item in direction:
+                if item == "left":
+                    feedback.append("Move the IV to the left.")
+                    self.arrow_left.setVisible(True)
+                    print("Move the IV to the left.")
+                if item == "right":
+                    feedback.append("Move the IV to the right.")
+                    self.arrow_right.setVisible(True)
+                if item == "up":
+                    feedback.append("Move the IV forward.")
+                    self.arrow_up.setVisible(True)
+                if item == "down":
+                    feedback.append("Move the IV backward.")
+                    self.arrow_down.setVisible(True)
 
         return "\n".join(feedback) + "\n" + "-" * 40
 
@@ -919,15 +935,17 @@ class FeedbackUI(QMainWindow):
                                                   selected_insertion_point,
                                                   work_queue=self.work_queue,
                                                   angle_range_queue=self.angle_range_queue,
-                                                  app_to_signal_processing=self.app_to_signal_processing)
+                                                  app_to_signal_processing=self.app_to_signal_processing,
+                                                  direction_intruction_queue=self.direction_intruction_queue)
                     self.feedback_ui.show()
 
 class MainApplication:
     """Manages the flow of the application."""
-    def __init__(self, sig_processed_queue, app_to_signal_processing, angle_range_queue):
+    def __init__(self, sig_processed_queue, app_to_signal_processing, angle_range_queue, direction_intruction_queue):
         self.sig_processed_queue = sig_processed_queue
         self.app_to_signal_processing = app_to_signal_processing
         self.angle_range_queue = angle_range_queue
+        self.direction_intruction_queue = direction_intruction_queue
         self.app = QApplication(sys.argv)
         self.selected_vein = None
         self.selected_insertion_point = None
@@ -957,7 +975,8 @@ class MainApplication:
                                              self.selected_insertion_point,
                                              work_queue=self.sig_processed_queue,
                                              angle_range_queue=self.angle_range_queue,
-                                             app_to_signal_processing=self.app_to_signal_processing)
+                                             app_to_signal_processing=self.app_to_signal_processing,
+                                             direction_intruction_queue = self.direction_intruction_queue)
                     feedback_ui.show()
                     sys.exit(self.app.exec())
 

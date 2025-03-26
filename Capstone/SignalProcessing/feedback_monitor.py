@@ -1,6 +1,6 @@
 from SignalProcessing.signal_processing import sig_processing
 from threading import Thread
-from queue import Queue
+from queue import Queue, Empty
 from DTW.DTW_working import compute_dtw
 import os
 import time
@@ -55,7 +55,14 @@ def get_average_insertion_and_elevation_angles(fp):
     fp = os.path.join(fp, "angle_stats.txt")
     return load_angle_stats(fp)
 
-def monitor(filtered, sig_processed, app_to_signal_processing, angle_range_queue, simulation_running_queue, lock, focal_point_queue):
+def monitor(filtered,
+            sig_processed,
+            app_to_signal_processing,
+            angle_range_queue,
+            simulation_running_queue,
+            lock,
+            focal_point_queue,
+            direction_intruction_queue):
     """
     Receives live trajectory data, finds the closest mean trajectory point, and 
     checks if it's within the standard deviation bounds.
@@ -83,6 +90,13 @@ def monitor(filtered, sig_processed, app_to_signal_processing, angle_range_queue
             # Call Dynamic Time Warping
             compute_dtw(fp, lock)
 
+            # Clear this queue
+            while True:
+                try:
+                    direction_intruction_queue.get_nowait()  # Non-blocking
+                except Empty:
+                    break  # Stop when queue is empty
+
         else:
             # If any of the setup conditions are none, keep polling for the rest.
             print(f"{vein=}, {location=}\n")
@@ -93,7 +107,7 @@ def monitor(filtered, sig_processed, app_to_signal_processing, angle_range_queue
             expert_pitch, expert_roll, expert_yaw, expert_pitch_std, expert_roll_std, expert_yaw_std = get_average_insertion_and_elevation_angles(fp)
             angle_range_queue.put([expert_pitch, expert_roll, expert_yaw, expert_pitch_std, expert_roll_std, expert_yaw_std])
 
-            signal_processor = Thread(target=sig_processing, args=[filtered, sig_processed, control], daemon=True)
+            signal_processor = Thread(target=sig_processing, args=[filtered, sig_processed, control, direction_intruction_queue], daemon=True)
             signal_processor.start()
 
             simulation_running_queue.put(1)

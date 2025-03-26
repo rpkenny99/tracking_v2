@@ -52,7 +52,7 @@ def find_nearest_mean_index(live_data, mean_traj, prev_idx, search_radius=100):
 
 # Define separate scaling factors for Pro vs. Amateur
 STD_PRO = 1.8
-STD_AMATEUR = 2.5
+STD_AMATEUR = 4
 
 def is_within_bounds(live_data, mean_traj, upper_bound, lower_bound, window_size=10000):
     """
@@ -132,7 +132,43 @@ def load_data(filename):
     data = np.loadtxt(filename)
     return data[:, 0], data[:, 1], data[:, 2]
 
-def sig_processing(filtered_data_queue, sig_processed_queue, control):
+def get_direction_to_correct_trajectory(live_data, mean_traj, nearest_idx):
+    """
+    Determines the direction the needle should move to approach the mean trajectory.
+
+    Args:
+    - live_data: np.array of shape (6,) representing (x, y, z, pitch, roll, yaw)
+    - mean_traj: np.array of shape (N, 6)
+    - nearest_idx: int, index of closest mean trajectory point
+
+    Returns:
+    - direction: str, human-readable direction suggestion
+    """
+    directions = []
+
+    # Extract 3D positions
+    live_xyz = np.array(live_data[:3])
+    mean_xyz = np.array(mean_traj[nearest_idx][:3])
+    delta = mean_xyz - live_xyz
+
+    threshold = 2.5
+
+    if delta[0] > threshold:
+        directions.append("right")
+    elif delta[0] < -threshold:
+        directions.append("left")
+
+    if delta[2] > threshold:
+        directions.append("up")
+    elif delta[2] < -threshold:
+        directions.append("down")
+
+    if not directions:
+        return None
+    
+    return directions
+
+def sig_processing(filtered_data_queue, sig_processed_queue, control, direction_intruction_queue):
     """
     Receives live trajectory data, finds the closest mean trajectory point, and 
     checks if it's within the standard deviation bounds.
@@ -140,9 +176,6 @@ def sig_processing(filtered_data_queue, sig_processed_queue, control):
     global prev_idx
     prev_idx = None
     (mean_traj, upper_bound, lower_bound), _ = get_mean_std_bounds()
-
-    _, _, Tz_left = load_data(r'Capstone/SignalProcessing/left_vein.txt')
-    _, _, Tz_right = load_data(r'Capstone/SignalProcessing/right_vein.txt')
 
     while True:
         if not control.empty():
@@ -165,13 +198,17 @@ def sig_processing(filtered_data_queue, sig_processed_queue, control):
         if sig_processed_queue.empty():
             sig_processed_queue.put(filtered_data_entry)
 
-        if np.any(filtered_data_entry[2] < (Tz_left + 15)) or np.any(filtered_data_entry[2] < (Tz_right + 15)): 
-            # Check if the live data is within bounds
-            within_bounds_pro, within_bounds_amateur, nearest_idx = is_within_bounds(filtered_data_entry, mean_traj, upper_bound, lower_bound)
+        # Check if the live data is within bounds
+        within_bounds_pro, within_bounds_amateur, nearest_idx = is_within_bounds(filtered_data_entry, mean_traj, upper_bound, lower_bound)
 
-            if within_bounds_pro:
-                print(f"✅")
-            elif within_bounds_amateur:
-                print(f"🟨")
-            else:
-                print(f"❌")
+        if within_bounds_pro:
+            print(f"✅")
+            pass
+        elif within_bounds_amateur:
+            print(f"🟨")
+            pass
+        else:
+            dir = get_direction_to_correct_trajectory(filtered_data_entry, mean_traj, nearest_idx)
+            direction_intruction_queue.put(dir)
+            # print(f"{dir=}")
+            # print(f"❌")

@@ -46,6 +46,7 @@ def main():
     angle_range_queue = Queue()
     simulation_running_queue = Queue()
     focal_point_queue = Queue()
+    direction_intruction_queue = Queue()
 
     file_lock = Lock()
 
@@ -57,7 +58,8 @@ def main():
                                                     angle_range_queue,
                                                     simulation_running_queue,
                                                     file_lock,
-                                                    focal_point_queue], daemon=True)
+                                                    focal_point_queue,
+                                                    direction_intruction_queue], daemon=True)
     # signal_processing = Thread(target=sig_processing, args=[filtered, sig_processed, app_to_signal_processing, angle_range_queue], daemon=True)
 
     raw_tracking.start()
@@ -66,7 +68,10 @@ def main():
 
     # Run the PyQt GUI in the main thread
     
-    main_app = MainApplication(sig_processed, app_to_signal_processing, angle_range_queue)
+    main_app = MainApplication(sig_processed,
+                               app_to_signal_processing,
+                               angle_range_queue,
+                               direction_intruction_queue)
     while True:
         if tracking_ready.get() == 1:
             break
