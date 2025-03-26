@@ -1,7 +1,7 @@
 from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtGui import QPixmap, QMovie, QFont, QColor, QPainter
 from PyQt6.QtWidgets import (
-    QMainWindow, QApplication, QWidget, QVBoxLayout, QGridLayout, QLabel,
+    QMainWindow, QApplication, QWidget, QVBoxLayout, QGridLayout, QLabel, QGraphicsOpacityEffect,
     QLineEdit, QPushButton, QTextEdit, QGroupBox, QHBoxLayout, QDialog, QStackedWidget
 )
 import sys
@@ -173,7 +173,7 @@ class FeedbackUI(QMainWindow):
                  selected_vein,
                  selected_point,
                  max_updates=12,
-                 update_interval=10,
+                 update_interval=5,
                  work_queue=None,
                  angle_range_queue=None,
                  app_to_signal_processing=None):
@@ -220,7 +220,7 @@ class FeedbackUI(QMainWindow):
         # Timer for real-time updates
         self.timer = QTimer()
         self.timer.timeout.connect(self._updateData)
-        self.timer.start(update_interval)
+        self.timer.start(10)
 
     def _createDisplay(self):
         """Create the UI layout with the updated design."""
@@ -430,6 +430,21 @@ class FeedbackUI(QMainWindow):
         # Add the canvas to the layout
         layout.addWidget(self.canvas, alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
 
+        # Create a label to indicate the current view
+        self.view_label = QLabel("", self.canvas)
+        self.view_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                font-size: 18px;
+                background-color: rgba(0, 0, 0, 150);
+                border-radius: 5px;
+                padding: 5px 10px;
+            }
+        """)
+        self.view_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.view_label.setVisible(False)
+        self.view_label.move(10, 10)  # Top-left corner of canvas
+
         # Plot the veins using the copied functions
         self.ax = self.figure.add_subplot(111, projection='3d')
         self.ax.grid(False)  # Remove the grid
@@ -490,52 +505,147 @@ class FeedbackUI(QMainWindow):
 
         # Set the initial view
         self.ax.view_init(elev=self.original_elev, azim=self.original_azim)
-        self.canvas.draw()
+
+        self.view_toggle_state = True  # Start with XY view
+        self.view_toggle_timer = QTimer()
+        self.view_toggle_timer.timeout.connect(self._toggleView)
+        self.view_toggle_timer.start(7000)  # Toggle every 5 seconds
+
+        self.canvas.draw_idle()
 
         # Start a timer for live updates
         self.live_update_timer = QTimer()
         self.live_update_timer.timeout.connect(self._updateLiveTrajectory)
-        self.live_update_timer.start(10)  # Update every 10 ms
+        self.live_update_timer.start(15)  # Update every 10 ms
+
+    def _toggleView(self):
+        """Start animating the transition between XY and YZ views and show the view label."""
+        if self.view_toggle_state:
+            self.start_elev, self.start_azim = 90, -90     # XY view (looking down Z)
+            self.end_elev, self.end_azim = 0, 0            # YZ view (looking down X)
+            view_text = "Side View"
+        else:
+            self.start_elev, self.start_azim = 0, 0
+            self.end_elev, self.end_azim = 90, -90
+            view_text = "Top View"
+
+        self.animation_step = 0
+        self.animation_steps = 20
+        self.view_toggle_state = not self.view_toggle_state
+
+        # Show and fade in the view label
+        self._showViewLabel(view_text)
+
+        # Animate the view transition
+        self.view_animation_timer = QTimer()
+        self.view_animation_timer.timeout.connect(self._animateViewTransition)
+        self.view_animation_timer.start(25)
+
+    def _showViewLabel(self, text):
+        """Display a view label that fades in and out."""
+        self.view_label.setText(text)
+        self.view_label.setVisible(True)
+        self.view_label.raise_()
+
+        self.view_label_opacity = QGraphicsOpacityEffect()
+        self.view_label.setGraphicsEffect(self.view_label_opacity)
+        self.view_label_opacity.setOpacity(0.0)
+
+        self.label_fade_in_timer = QTimer()
+        self.label_fade_out_timer = QTimer()
+        self.label_fade_step = 0
+
+        def fade_in():
+            opacity = self.label_fade_step / 10
+            self.view_label_opacity.setOpacity(opacity)
+            self.label_fade_step += 1
+            if self.label_fade_step > 10:
+                self.label_fade_in_timer.stop()
+                QTimer.singleShot(1500, fade_out)  # Stay visible before fading out
+
+        def fade_out():
+            self.label_fade_step = 10
+            self.label_fade_out_timer.timeout.connect(step_out)
+            self.label_fade_out_timer.start(50)
+
+        def step_out():
+            opacity = self.label_fade_step / 10
+            self.view_label_opacity.setOpacity(opacity)
+            self.label_fade_step -= 1
+            if self.label_fade_step < 0:
+                self.label_fade_out_timer.stop()
+                self.view_label.setVisible(False)
+
+        self.label_fade_in_timer.timeout.connect(fade_in)
+        self.label_fade_in_timer.start(50)
+
+    def _animateViewTransition(self):
+        """Animate each step of the view transition."""
+        t = self.animation_step / self.animation_steps  # Normalized time [0,1]
+        elev = (1 - t) * self.start_elev + t * self.end_elev
+        azim = (1 - t) * self.start_azim + t * self.end_azim
+
+        self.ax.view_init(elev=elev, azim=azim)
+        self.canvas.draw_idle()
+
+        self.animation_step += 1
+        if self.animation_step > self.animation_steps:
+            self.view_animation_timer.stop()
+
 
     def _updateLiveTrajectory(self):
-        """Update the live trajectory with new data points."""
-        # Simulate fetching new data points from the tracking system
-        # Replace this with actual data from your tracking system
+        """Update the live trajectory using the last 4 points (current + previous 3)."""
         if self.live_trajectory_queue.empty():
             return
+
         new_point = self.live_trajectory_queue.get()
 
-        # Debug: Print the new point
-        #print(f"New point: {new_point}")
-
         # Normalize the new point to fit within the axis limits
-        new_point[0] = np.clip(new_point[0], self.xlim[0], self.xlim[1])  # Clip x values
-        new_point[1] = np.clip(new_point[1], self.ylim[0], self.ylim[1])  # Clip y values
-        new_point[2] = np.clip(new_point[2], self.zlim[0], self.zlim[1])  # Clip z values
+        new_point[0] = np.clip(new_point[0], self.xlim[0], self.xlim[1])
+        new_point[1] = np.clip(new_point[1], self.ylim[0], self.ylim[1])
+        new_point[2] = np.clip(new_point[2], self.zlim[0], self.zlim[1])
 
-        # Update the live trajectory to store only the latest point
-        self.live_trajectory = new_point  # Replace the previous point with the new one
+        # Initialize or update the rolling buffer of points
+        if not hasattr(self, 'live_trajectory_buffer'):
+            self.live_trajectory_buffer = []
 
-        # Debug: Print the live trajectory shape and content
-        #print(f"Live trajectory shape: {self.live_trajectory.shape}")
-        #print(f"Live trajectory content: {self.live_trajectory}")
+        self.live_trajectory_buffer.append(new_point)
 
-        # Clear the previous live point from the plot
+        # Keep only the last 4 points
+        if len(self.live_trajectory_buffer) > 4:
+            self.live_trajectory_buffer.pop(0)
+
+        # Convert to numpy array for plotting
+        trajectory_array = np.array(self.live_trajectory_buffer)
+
+        # Clear previous line and point if they exist
+        if hasattr(self, 'live_line'):
+            self.live_line.remove()
         if hasattr(self, 'live_point'):
-            self.live_point.remove()  # Remove the previous point
+            self.live_point.remove()
 
-        # Plot the new live point as a single point (e.g., using a scatter plot)
+        # Plot the line through the last 4 points
+        self.live_line, = self.ax.plot(
+            trajectory_array[:, 0],
+            trajectory_array[:, 1],
+            trajectory_array[:, 2],
+            'y-',  # Yellow line
+            linewidth=2,
+            label="Live"
+        )
+
+        # Plot the most recent point
         self.live_point = self.ax.scatter(
-            self.live_trajectory[0],  # X coordinate
-            self.live_trajectory[1],  # Y coordinate
-            self.live_trajectory[2],  # Z coordinate
-            color='yellow',  # Color of the point
-            s=50,  # Size of the point
-            label="Live"  # Label for the legend
+            new_point[0],
+            new_point[1],
+            new_point[2],
+            color='yellow',
+            s=50,
+            label="Current"
         )
 
         # Redraw the canvas
-        self.canvas.draw()
+        self.canvas.draw_idle()
 
     def _animatePlot(self):
         """Animate the plot by rotating and panning, then return to the original position."""
@@ -559,7 +669,7 @@ class FeedbackUI(QMainWindow):
             self.ax.set_ylim([self.original_ylim[0] + y_shift, self.original_ylim[1] + y_shift])
 
             # Redraw the canvas
-            self.canvas.draw()
+            self.canvas.draw_idle()
 
             self.animation_step += 1
         else:
@@ -568,7 +678,7 @@ class FeedbackUI(QMainWindow):
             self.ax.set_xlim(self.original_xlim)
             self.ax.set_ylim(self.original_ylim)
             self.ax.set_zlim(self.original_zlim)
-            self.canvas.draw()
+            self.canvas.draw_idle()
 
             # Stop the timer
             self.animation_timer.stop()

@@ -64,7 +64,7 @@ def post_process_nominal_insertion_and_elevation_angles(left_right="LEFT", locat
     _, _, Tz = load_data(vein_fp)
 
     avg_angles_per_file = []
-    data_dir = 'Capstone/SignalProcessing/expert_data/left-vein/middle/'
+    data_dir = 'Capstone/SignalProcessing/expert_data/right-vein/middle/'
 
     for filepath in glob.glob(os.path.join(data_dir, 'filtered_data_*.txt')):
         data = load_filtered_data(filepath)
@@ -111,25 +111,25 @@ def post_process_nominal_insertion_and_elevation_angles(left_right="LEFT", locat
     
 
 def main():
-    # raw = Queue()
-    # filtered = Queue()
-    # tracking_ready = Queue()
+    raw = Queue()
+    filtered = Queue()
+    tracking_ready = Queue()
 
-    # raw_tracking = Thread(target=startTracking, args=[raw, tracking_ready], daemon=True)
-    # filter = Thread(target=process_file_3, args=[raw, filtered], daemon=True)
+    raw_tracking = Thread(target=startTracking, args=[raw, tracking_ready], daemon=True)
+    filter = Thread(target=process_file_3, args=[raw, filtered], daemon=True)
 
-    # raw_tracking.start()
-    # filter.start()
+    raw_tracking.start()
+    filter.start()
 
-    # raw_tracking.join()
-    # display('raw tracking has finished')
+    raw_tracking.join()
+    display('raw tracking has finished')
 
-    # filter.join()
-    # display('filter has finished')
+    filter.join()
+    display('filter has finished')
 
-    final_avg_pitch, final_avg_roll, final_avg_yaw, final_std_pitch, final_std_roll, final_std_yaw = post_process_nominal_insertion_and_elevation_angles()
+    # final_avg_pitch, final_avg_roll, final_avg_yaw, final_std_pitch, final_std_roll, final_std_yaw = post_process_nominal_insertion_and_elevation_angles()
 
-    print(f"{final_avg_pitch=}, {final_avg_roll=}, {final_avg_yaw=}, {final_std_pitch=}, {final_std_roll=}, {final_std_yaw=}")
+    # print(f"{final_avg_pitch=}, {final_avg_roll=}, {final_avg_yaw=}, {final_std_pitch=}, {final_std_roll=}, {final_std_yaw=}")
 
     
 

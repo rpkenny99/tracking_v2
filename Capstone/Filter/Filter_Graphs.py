@@ -7,6 +7,7 @@ import os
 import keyboard
 from itertools import count
 import queue
+from SignalProcessing.feedback_monitor import remove_first_n_lines
 
 DEFAULT_FILTERED_DATA_FILE_PATH = "Capstone/Filter/filtered_data.txt"
 
@@ -189,7 +190,10 @@ def process_file_2(raw_data_queue,
             with file_lock:
                 output_fh.write(" ".join(map(str, filtered_row)) + "\n")
             # output_fh.flush()  # Ensure real-time writing to the file
-        if filtered_data_queue.empty():
+        if not filtered_data_queue.empty():
+            filtered_data_queue.get(filtered_row) # The previous data has not been picked up by UI yet, replace with new data
+            filtered_data_queue.put(filtered_row)
+        else:
             filtered_data_queue.put(filtered_row)
 
         # plot_data(raw_data, filtered_data)
@@ -198,7 +202,7 @@ def process_file_2(raw_data_queue,
     filtered_data_queue.put(None)
 
 
-def get_unique_filename(base_name="Capstone/SignalProcessing/expert_data/left-vein/middle/filtered_data", ext=".txt"):
+def get_unique_filename(base_name="Capstone/SignalProcessing/expert_data/right-vein/middle/filtered_data", ext=".txt"):
     for i in count(1):
         filename = f"{base_name}_{i}{ext}"
         if not os.path.exists(filename):

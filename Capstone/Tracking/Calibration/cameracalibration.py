@@ -25,14 +25,14 @@ charuco_board = aruco.CharucoBoard(
 # -------------------------------------------------------
 # 2. Setup directories
 # -------------------------------------------------------
-calib_data_path = "Capstone/Tracking/Calibration/60FOV/calib_data"
+calib_data_path = "Capstone/Tracking/Calibration/78FOV/calib_data"
 if not os.path.isdir(calib_data_path):
     os.makedirs(calib_data_path)
     print(f'"{calib_data_path}" Directory is created')
 else:
     print(f'"{calib_data_path}" Directory already Exists.')
 
-image_dir_path = "Capstone/Tracking/Calibration/60FOV/images"
+image_dir_path = "Capstone/Tracking/Calibration/78FOV/images"
 files = os.listdir(image_dir_path)
 
 # -------------------------------------------------------

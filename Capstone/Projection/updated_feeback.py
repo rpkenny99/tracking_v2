@@ -225,7 +225,7 @@ class FeedbackUI(QMainWindow):
         # Timer for real-time updates
         self.timer = QTimer()
         self.timer.timeout.connect(self._updateData)
-        self.timer.start(update_interval)
+        self.timer.start(1)
 
     def _createDisplay(self):
         """Create the UI layout with the updated design."""

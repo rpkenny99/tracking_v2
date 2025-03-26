@@ -19,7 +19,7 @@ velocity_history = deque(maxlen=7)  # Stores last 7 translational velocities
 
 markerDict = aruco.getPredefinedDictionary(aruco.DICT_6X6_100)
 paramMarkers = aruco.DetectorParameters()
-calib_data_path = r"Capstone/Tracking/Calibration/90FOV/calib_data/MultiMatrix.npz"
+calib_data_path = r"Capstone/Tracking/Calibration/60FOV/calib_data copy/MultiMatrix.npz"
 calib_data = np.load(calib_data_path)
 
 cam_mat = calib_data["camMatrix"]
@@ -42,8 +42,8 @@ first_data = True
 
 MARKER_SIZE = 12
 MARKER_SIZE_ORIGIN = 50.8
-REFERENCE_RVEC = np.array([1.2745078 ,  1.57958729, -1.28090312])
-REFERENCE_TVEC = np.array([47.73068906,  56.44002886, 414.44111322])
+REFERENCE_RVEC = np.array([1.50726274,  1.55765935, -1.25109851])
+REFERENCE_TVEC = np.array([37.63370034,  35.26312774, 474.18665317])
 FPS = 30
 TIME_PER_FRAME = 1/FPS
 
@@ -262,7 +262,6 @@ def dodecahedron_center_to_iv(rotation, translation):
     R_local_x, _ = cv2.Rodrigues(local_x_axis * angle_rad)
     rotation = R_local_x @ rotation
 
-    
 
     translation = translation + (57.35) * rotation[:, 2].reshape(3, 1)
     # translation = translation + (2) * rotation[:, 1].reshape(3, 1)
@@ -613,8 +612,10 @@ def dodecahedron_aruco_points():
   
     return all_aruco_points
 
-def RunVideoCaptureDetection(queue, tracking_ready, vidCapturePath=None):
+def RunVideoCaptureDetection(queue, tracking_ready, focal_point_queue, vidCapturePath=None):
     print("Trying to open video capture device")
+
+    
     
     # init_realtime_plot()
     if vidCapturePath is None:
@@ -634,14 +635,23 @@ def RunVideoCaptureDetection(queue, tracking_ready, vidCapturePath=None):
 
     tracking_ready.put(1)
 
+    
+
     with open('Capstone/Tracking/data.txt', 'w') as file:
         while rval:
+
             post_process_frame, data = ProcessFrame_2(frame, file)
             if data[0] != None:
                 if queue.empty():
                     queue.put(data)
                 # print(f"Putting: {data} into queue\n")
 
+            if not focal_point_queue.empty():
+                vein = focal_point_queue.get()
+                if vein == "Right Vein":
+                    vc.set(cv2.CAP_PROP_FOCUS, 25)
+                elif vein == "Left Vein":
+                    vc.set(cv2.CAP_PROP_FOCUS, 10)
 
             rval, frame = vc.read()
 
@@ -773,19 +783,20 @@ def plot_aruco_board():
     plt.pause(40)  # A small pause so that the figure gets updated
 
 
-def startTracking(queue, tracking_ready):
+def startTracking(queue, tracking_ready, focal_point_queue):
     global board
         
     board = setupArucoBoard()
     # plot_aruco_board()
-    RunVideoCaptureDetection(queue, tracking_ready)
+    RunVideoCaptureDetection(queue, tracking_ready, focal_point_queue)
     # RunTestImageDetection()
     
     queue.put(None)
 
 if __name__ == "__main__":
-    queue, tracking_ready = Queue(), Queue()
-    startTracking(queue, tracking_ready)
+    queue, tracking_ready, focal_point_queue = Queue(), Queue(), Queue()
+    # focal_point_queue.put("Left Vein")
+    startTracking(queue, tracking_ready, focal_point_queue)
 
 # sweep_dodecahedron_transform()
 
