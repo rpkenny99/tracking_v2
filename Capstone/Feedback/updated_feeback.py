@@ -1,4 +1,4 @@
-from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtCore import QTimer, Qt, QSize
 from PyQt6.QtGui import QPixmap, QMovie, QFont, QColor, QPainter
 from PyQt6.QtWidgets import (
     QMainWindow, QApplication, QWidget, QVBoxLayout, QGridLayout, QLabel, QGraphicsOpacityEffect,
@@ -48,6 +48,22 @@ class IntroScreen(QDialog):
         layout.addWidget(exit_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.setLayout(layout)
+        self.setStyleSheet("background-color: black; color: white;")
+        self.setStyleSheet("""
+            QPushButton {
+                border: 2px solid white;
+                color: white;
+                background-color: black;
+            }
+            QPushButton:hover {
+                background-color: white;
+                color: black;
+            }
+            QWidget {
+                background-color: black;
+                color: white;
+            }
+        """)
 
 class PickVeinScreen(QDialog):
     """Choose the Vein to be pierced."""
@@ -55,6 +71,23 @@ class PickVeinScreen(QDialog):
         super().__init__()
         self.setWindowTitle("Pick Your Vein")
         self.setFixedSize(1920, 1000)
+        
+        self.setStyleSheet("background-color: black; color: white;")
+        self.setStyleSheet("""
+            QPushButton {
+                border: 2px solid white;
+                color: white;
+                background-color: black;
+            }
+            QPushButton:hover {
+                background-color: white;
+                color: black;
+            }
+            QWidget {
+                background-color: black;
+                color: white;
+            }
+        """)
 
         # Main layout
         main_layout = QVBoxLayout()
@@ -153,6 +186,24 @@ class PickInsertionPointScreen(QDialog):
         main_layout.addLayout(top_bar_layout)
 
         # Arm Image
+        self.setStyleSheet("background-color: black; color: white;")
+        self.setStyleSheet("""
+            QPushButton {
+                border: 2px solid white;
+                color: white;
+                background-color: black;
+            }
+            QPushButton:hover {
+                background-color: white;
+                color: black;
+            }
+            QWidget {
+                background-color: black;
+                color: white;
+            }
+        """)
+
+        # Arm Image with Clickable Points
         self.arm_image_label = QLabel(self)
         if self.selected_vein == "Left Vein":
             self.pixmap = QPixmap("Capstone/Feedback/leftvein-removebg-preview.png")
@@ -211,6 +262,23 @@ class FeedbackUI(QMainWindow):
         self.showFullScreen()  # Make the window maximized
 
         self.live_trajectory_queue = Queue()
+        
+        self.setStyleSheet("background-color: black; color: white;")
+        self.setStyleSheet("""
+            QPushButton {
+                border: 2px solid white;
+                color: white;
+                background-color: black;
+            }
+            QPushButton:hover {
+                background-color: white;
+                color: black;
+            }
+            QWidget {
+                background-color: black;
+                color: white;
+            }
+        """)
 
         # Store the selected vein and insertion point
         self.selected_vein = selected_vein
@@ -222,9 +290,10 @@ class FeedbackUI(QMainWindow):
 
         self.expert_pitch, _, self.expert_yaw, self.expert_pitch_std, _, self.expert_yaw_std = angle_range_queue.get()
 
-        # Define initial view parameters for the 3D plot
-        self.original_elev = 30  # Default elevation
-        self.original_azim = -60  # Default azimuth
+        # Set this for top-down perspective
+        self.original_elev = 90
+        self.original_azim = -90
+
 
         # Debug statements
         print(f"FeedbackUI - Selected Vein: {self.selected_vein}")
@@ -371,22 +440,30 @@ class FeedbackUI(QMainWindow):
 
         # Directional arrows (GIFs)
         self.arrow_up = QLabel(self.arm_image_label)
-        self.arrow_up_movie = QMovie("Capstone/Feedback/arrow-1153-256-mainup-1-unscreen")
+        self.arrow_up.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.arrow_up_movie = QMovie("Capstone/Feedback/arrows/up-arrow.gif")
+        self.arrow_up_movie.setScaledSize(QSize(100, 100))
         self.arrow_up.setMovie(self.arrow_up_movie)
         self.arrow_up.setVisible(False)
 
         self.arrow_down = QLabel(self.arm_image_label)
-        self.arrow_down_movie = QMovie("Capstone/Feedback/arrow-1153_256(maindown).gif")
+        self.arrow_down.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.arrow_down_movie = QMovie("Capstone/Feedback/arrows/down-arrow.gif")
+        self.arrow_down_movie.setScaledSize(QSize(100, 100))
         self.arrow_down.setMovie(self.arrow_down_movie)
         self.arrow_down.setVisible(False)
 
         self.arrow_left = QLabel(self.arm_image_label)
-        self.arrow_left_movie = QMovie("Capstone/Feedback/arrow-358_256(mainleft).gif")
+        self.arrow_left.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.arrow_left_movie = QMovie("Capstone/Feedback/arrows/left-arrow.gif")
+        self.arrow_left_movie.setScaledSize(QSize(100, 100))
         self.arrow_left.setMovie(self.arrow_left_movie)
         self.arrow_left.setVisible(False)
 
         self.arrow_right = QLabel(self.arm_image_label)
-        self.arrow_right_movie = QMovie("Capstone/Feedback/arrow-358-256-mainright--unscreen")
+        self.arrow_right.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.arrow_right_movie = QMovie("Capstone/Feedback/arrows/right-arrow.gif")
+        self.arrow_right_movie.setScaledSize(QSize(100, 100))
         self.arrow_right.setMovie(self.arrow_right_movie)
         self.arrow_right.setVisible(False)
 
@@ -464,6 +541,7 @@ class FeedbackUI(QMainWindow):
             }
             QPushButton:hover {
                 background-color: white;
+                color: black;
             }
         """)
 
@@ -593,9 +671,25 @@ class FeedbackUI(QMainWindow):
         # Remove title
         self.ax.set_title("")
 
-        # Add a legend and move it outside the plot
-        legend = self.ax.legend(loc='upper left', bbox_to_anchor=(0.8, 1), title="Legend")
-        legend.set_visible(True)
+        legend = self.ax.legend(
+            loc='upper left',
+            bbox_to_anchor=(0.8, 1),
+            title="Legend",
+            facecolor='none',         # Transparent background
+            edgecolor='none',         # No border
+            labelcolor='white',       # Legend text color (for Matplotlib >=3.6)
+        )
+
+        # Manually style text for broader compatibility
+        for text in legend.get_texts():
+            text.set_color("white")
+
+        # Style the title
+        legend.get_title().set_color("white")
+
+        # Style the frame
+        legend.get_frame().set_alpha(0)  # Fully transparent
+        legend.get_frame().set_linewidth(0)
 
         # Ensure the entire figure and axes background are transparent
         self.ax.set_facecolor('none')
@@ -613,6 +707,7 @@ class FeedbackUI(QMainWindow):
 
         # Set the initial view
         self.ax.view_init(elev=self.original_elev, azim=self.original_azim)
+        self._showViewLabel("Top View")  # or "Side View" depending on the initial view
 
         self.view_toggle_state = True  # Start with XY view
         self.view_toggle_timer = QTimer()
@@ -859,6 +954,8 @@ class FeedbackUI(QMainWindow):
         else:
             direction = None
         
+        feedback = self._generateFeedback(direction)
+        
         x, y, z, pitch, roll, yaw = data
         self.live_trajectory_queue.put([x, y, z])
 
@@ -870,7 +967,6 @@ class FeedbackUI(QMainWindow):
         #self.angleInput.setText(f"{simulated_elevation:.2f}")
         #self.depthInput.setText(f"{simulated_angle_of_insertion:.2f}")
 
-        feedback = self._generateFeedback(direction, simulated_angle_of_insertion, simulated_elevation)
         self.promptsLog.append(f"Update {self.update_count + 1}: {feedback}")
 
         target_angle = float(self.targetAngle.text())
@@ -896,7 +992,7 @@ class FeedbackUI(QMainWindow):
         if arrow:
             arrow.setVisible(is_visible)
 
-    def _generateFeedback(self, direction, angle, depth):
+    def _generateFeedback(self, direction):
         """Generate feedback based on current and target metrics."""
         target_angle = float(self.targetAngle.text())
         target_depth = float(self.targetDepth.text())
