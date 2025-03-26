@@ -605,8 +605,8 @@ class MainApplication:
                     feedback_ui.show()
                     sys.exit(self.app.exec())
 
-if __name__ == "__main__":
-    queue = Queue()
-    main_app = MainApplication(queue)
-    main_app.run()
+# if __name__ == "__main__":
+#     queue = Queue()
+#     main_app = MainApplication(queue)
+#     main_app.run()
     # imgProj7.capture_feedback3_window(interval=1)  # Adjust interval as needed
