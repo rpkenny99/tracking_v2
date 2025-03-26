@@ -13,6 +13,8 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from queue import Queue
 from SignalProcessing.compute_avg_std_dev import get_mean_std_bounds, STD_ACCEPTABLE
+from PyQt6.QtGui import QPixmap, QTransform
+
 
 import matplotlib
 # Hide debug messages (only show warnings and above)
@@ -23,7 +25,7 @@ class IntroScreen(QDialog):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Cyber-Physical Infant IV Simulator")
-        self.showMaximized()  # Make the window maximized
+        self.setFixedSize(1920, 1080)  # Make the window maximized
 
         layout = QVBoxLayout()
         label = QLabel("Cyber-Physical Infant IV Simulator")
@@ -40,6 +42,11 @@ class IntroScreen(QDialog):
         start_button.clicked.connect(self.accept)  # Close the dialog on click
         layout.addWidget(start_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
+        # Exit Button (optional)
+        exit_button = QPushButton("Exit")
+        exit_button.clicked.connect(self.reject)  # Close the app
+        layout.addWidget(exit_button, alignment=Qt.AlignmentFlag.AlignCenter)
+
         self.setLayout(layout)
 
 class PickVeinScreen(QDialog):
@@ -47,96 +54,117 @@ class PickVeinScreen(QDialog):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Pick Your Vein")
-        self.setFixedSize(1365, 680)
+        self.setFixedSize(1920, 1000)
 
         # Main layout
-        layout = QVBoxLayout()
+        main_layout = QVBoxLayout()
 
-        # Header (moved to the top)
+        # Top bar layout (Go Back + Title)
+        top_bar_layout = QHBoxLayout()
+        
+        # Go Back Button (Left-aligned)
+        back_button = QPushButton("← Go Back")
+        back_button.clicked.connect(self.go_back)
+        top_bar_layout.addWidget(back_button, alignment=Qt.AlignmentFlag.AlignLeft)
+
+        # Left stretch (pushes title right)
+        top_bar_layout.addStretch()
+
+        # Title (Centered)
         header_label = QLabel("Pick Your Vein")
         header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         font = QFont()
         font.setPointSize(22)
         font.setBold(True)
         header_label.setFont(font)
-        layout.addWidget(header_label)
+        top_bar_layout.addWidget(header_label, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # Arm Image
+        # Right stretch (pushes title left)
+        top_bar_layout.addStretch()
+
+        main_layout.addLayout(top_bar_layout)
+
+        # Rest of the UI (image, buttons, etc.)
         self.arm_image_label = QLabel(self)
         self.pixmap = QPixmap("Capstone/Feedback/redv3in.png")
-
-        # Adjust the image size here by changing the width and height values
-        self.image_width = 950  # Set your desired width in pixels
-        self.image_height = 450  # Set your desired height in pixels
-        self.arm_image_label.setPixmap(self.pixmap.scaled(
-            self.image_width, self.image_height, Qt.AspectRatioMode.KeepAspectRatio
-        ))
+        transform = QTransform().rotate(180)
+        self.pixmap = self.pixmap.transformed(transform)
+        self.arm_image_label.setPixmap(self.pixmap.scaled(950, 450, Qt.AspectRatioMode.KeepAspectRatio))
         self.arm_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.arm_image_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        main_layout.addWidget(self.arm_image_label)
 
-        # Buttons for vein selection
+        # Vein Selection Buttons
         button_layout = QHBoxLayout()
-
-        # Left Vein Button
         left_vein_button = QPushButton("Left Vein")
         left_vein_button.clicked.connect(self.select_left_vein)
         button_layout.addWidget(left_vein_button)
 
-        # Right Vein Button
         right_vein_button = QPushButton("Right Vein")
         right_vein_button.clicked.connect(self.select_right_vein)
         button_layout.addWidget(right_vein_button)
 
-        layout.addLayout(button_layout)
-        self.setLayout(layout)
+        main_layout.addLayout(button_layout)
+        self.setLayout(main_layout)
 
     def select_left_vein(self):
-        """Handle selection of the left vein."""
         self.selected_vein = "Left Vein"
         self.accept()
 
     def select_right_vein(self):
-        """Handle selection of the right vein."""
         self.selected_vein = "Right Vein"
         self.accept()
+
+    def go_back(self):
+        self.reject()
 
 class PickInsertionPointScreen(QDialog):
     def __init__(self, selected_vein):
         super().__init__()
         self.setWindowTitle("Pick Insertion Point")
-        self.setFixedSize(1365, 680)
-
-        # Store the selected vein
+        self.setFixedSize(1920, 1000)
         self.selected_vein = selected_vein
 
-        layout = QVBoxLayout()
+        # Main layout
+        main_layout = QVBoxLayout()
 
-        # Header    
+        # Top bar layout (Go Back + Title)
+        top_bar_layout = QHBoxLayout()
+        
+        # Go Back Button (Left-aligned)
+        back_button = QPushButton("← Go Back")
+        back_button.clicked.connect(self.go_back)
+        top_bar_layout.addWidget(back_button, alignment=Qt.AlignmentFlag.AlignLeft)
+
+        # Add stretch to push title to center
+        top_bar_layout.addStretch()
+
+        # Title (Centered)
         header_label = QLabel("Pick Insertion Point")
         header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         font = QFont()
         font.setPointSize(22)
         font.setBold(True)
         header_label.setFont(font)
-        layout.addWidget(header_label)
+        top_bar_layout.addWidget(header_label)
 
-        # Arm Image with Clickable Points
+        # Add another stretch to balance the layout
+        top_bar_layout.addStretch()
+
+        main_layout.addLayout(top_bar_layout)
+
+        # Arm Image
         self.arm_image_label = QLabel(self)
-        
-        # Load the appropriate image based on the selected vein
         if self.selected_vein == "Left Vein":
             self.pixmap = QPixmap("Capstone/Feedback/leftvein-removebg-preview.png")
         elif self.selected_vein == "Right Vein":
             self.pixmap = QPixmap("Capstone/Feedback/rightvein-removebg-preview.png")
-        else:
-            # Default image if no vein is selected (optional)
-            self.pixmap = QPixmap("Capstone/Feedback/default_image.png")
-
+        transform = QTransform().rotate(180)
+        self.pixmap = self.pixmap.transformed(transform)
         self.arm_image_label.setPixmap(self.pixmap.scaled(950, 450, Qt.AspectRatioMode.KeepAspectRatio))
         self.arm_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.arm_image_label)
+        main_layout.addWidget(self.arm_image_label)
 
-        # Buttons for insertion points
+        # Insertion Point Buttons
         button_layout = QHBoxLayout()
         point_a_button = QPushButton("Top")
         point_a_button.clicked.connect(self.select_point_a)
@@ -150,23 +178,23 @@ class PickInsertionPointScreen(QDialog):
         point_c_button.clicked.connect(self.select_point_c)
         button_layout.addWidget(point_c_button)
 
-        layout.addLayout(button_layout)
-        self.setLayout(layout)
+        main_layout.addLayout(button_layout)
+        self.setLayout(main_layout)
 
     def select_point_a(self):
-        """Handle selection of Point A."""
         self.selected_point = "Point A"
         self.accept()
 
     def select_point_b(self):
-        """Handle selection of Point B."""
         self.selected_point = "Point B"
         self.accept()
 
     def select_point_c(self):
-        """Handle selection of Point C."""
         self.selected_point = "Point C"
         self.accept()
+
+    def go_back(self):
+        self.reject()  # Return to PickVeinScreen
 
 class FeedbackUI(QMainWindow):
     def __init__(self,
@@ -322,6 +350,10 @@ class FeedbackUI(QMainWindow):
         else:
             # Default image if no vein or point is selected (optional)
             self.pixmap = QPixmap("Capstone/Feedback/default_image.png")
+        
+        # Flip the pixmap 180 degrees (upside down)
+        transform = QTransform().rotate(180)  # Rotate by 180 degrees
+        self.pixmap = self.pixmap.transformed(transform)
 
         # Debug statement to confirm the image path
         print(f"Loading image: {self.pixmap}")
@@ -368,7 +400,7 @@ class FeedbackUI(QMainWindow):
         self.arrow_down_movie.start()
         self.arrow_left_movie.start()
         self.arrow_right_movie.start()
-
+        """
         # Needle Position, Angle, and Depth
         positionLayout = QGridLayout()
         positionLayout.addWidget(QLabel("Needle Position (x, y, z):"), 0, 0)
@@ -384,13 +416,35 @@ class FeedbackUI(QMainWindow):
         positionLayout.addWidget(self.depthInput, 2, 1)
 
         leftLayout.addLayout(positionLayout)
-
+        """
         # Guided Prompts and Warnings
         rightLayout = QVBoxLayout()
-        rightLayout.addWidget(QLabel("Guided Prompts and Warnings:"))
+        rightLayout.setContentsMargins(0, 0, 0, 0)  # Remove all margins
+        rightLayout.setSpacing(0)  # Remove spacing between widgets
+
+        # Create a container widget for the label and text edit
+        prompts_container = QWidget()
+        prompts_container.setLayout(QVBoxLayout())
+        prompts_container.layout().setContentsMargins(0, 0, 0, 0)
+        prompts_container.layout().setSpacing(0)
+
+        # Add the label (stick to top)
+        title_label = QLabel("Guided Prompts and Warnings:")
+        title_label.setContentsMargins(0, 0, 0, 0)  # Remove label margins
+        prompts_container.layout().addWidget(title_label)
+
+        # Add the text edit
         self.promptsLog = QTextEdit()
         self.promptsLog.setReadOnly(True)
-        rightLayout.addWidget(self.promptsLog)
+        self.promptsLog.setFixedHeight(150)
+        self.promptsLog.setContentsMargins(0, 0, 0, 0)  # Remove text edit margins
+        prompts_container.layout().addWidget(self.promptsLog)
+
+        # Add stretch to push everything up
+        prompts_container.layout().addStretch()
+
+        # Add container to right layout
+        rightLayout.addWidget(prompts_container)
 
         # Buttons
         buttonLayout = QHBoxLayout()
@@ -406,6 +460,7 @@ class FeedbackUI(QMainWindow):
                 font-weight: bold;
                 padding: 15px 30px;
                 border-radius: 10px;
+                margin-top: 10px;  /* Add some spacing */
             }
             QPushButton:hover {
                 background-color: white;
@@ -413,7 +468,7 @@ class FeedbackUI(QMainWindow):
         """)
 
         self.endSimulationButton.clicked.connect(self._endSimulation)
-        buttonLayout.addWidget(self.endSimulationButton, alignment=Qt.AlignmentFlag.AlignCenter)
+        rightLayout.addWidget(self.endSimulationButton, alignment=Qt.AlignmentFlag.AlignCenter)
 
         rightLayout.addLayout(buttonLayout)
 
@@ -466,13 +521,19 @@ class FeedbackUI(QMainWindow):
 
     def _plotVeins(self, layout):
         """Plot the vein visualization using matplotlib and overlay it on the black area."""
+        # Create container widget for the plot
+        #plot_container = QWidget()
+        #plot_container.setLayout(QVBoxLayout())
+        #plot_container.layout().setContentsMargins(0, 0, 0, 0)
+        
+        
         # Create a matplotlib figure with a fully transparent background
         self.figure = Figure(facecolor='none')  # Transparent figure
         self.canvas = FigureCanvas(self.figure)
         self.canvas.setStyleSheet("background-color: transparent;")  # Transparent canvas
 
         # Set a fixed size for the canvas to make the plot smaller
-        self.canvas.setFixedSize(400, 300)  # Adjust the size as needed
+        self.canvas.setFixedSize(700, 700)  # Adjust the size as needed
 
         # Add the canvas to the layout
         layout.addWidget(self.canvas, alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
@@ -805,9 +866,9 @@ class FeedbackUI(QMainWindow):
         simulated_elevation = pitch
         simulated_angle_of_insertion = yaw
 
-        self.positionInput.setText(simulated_position)
-        self.angleInput.setText(f"{simulated_elevation:.2f}")
-        self.depthInput.setText(f"{simulated_angle_of_insertion:.2f}")
+        #self.positionInput.setText(simulated_position)
+        #self.angleInput.setText(f"{simulated_elevation:.2f}")
+        #self.depthInput.setText(f"{simulated_angle_of_insertion:.2f}")
 
         feedback = self._generateFeedback(direction, simulated_angle_of_insertion, simulated_elevation)
         self.promptsLog.append(f"Update {self.update_count + 1}: {feedback}")
@@ -972,49 +1033,41 @@ class FeedbackUI(QMainWindow):
                     self.feedback_ui.show()
 
 class MainApplication:
-    """Manages the flow of the application."""
     def __init__(self, sig_processed_queue, app_to_signal_processing, angle_range_queue, direction_intruction_queue):
         self.sig_processed_queue = sig_processed_queue
         self.app_to_signal_processing = app_to_signal_processing
         self.angle_range_queue = angle_range_queue
         self.direction_intruction_queue = direction_intruction_queue
         self.app = QApplication(sys.argv)
-        self.selected_vein = None
-        self.selected_insertion_point = None
 
     def run(self):
-        # Intro Screen
-        intro_screen = IntroScreen()
-        if intro_screen.exec() == QDialog.DialogCode.Accepted:
-            # Pick Vein Screen
-            vein_screen = PickVeinScreen()
-            if vein_screen.exec() == QDialog.DialogCode.Accepted:
-                self.selected_vein = vein_screen.selected_vein
-                print(f"Selected Vein: {self.selected_vein}")  # Debug statement
+        while True:  # Loop to handle navigation
+            # Intro Screen
+            intro_screen = IntroScreen()
+            if intro_screen.exec() == QDialog.DialogCode.Accepted:
+                # Pick Vein Screen
+                vein_screen = PickVeinScreen()
+                result = vein_screen.exec()
                 
-
-                # Pick Insertion Point Screen
-                insertion_point_screen = PickInsertionPointScreen(self.selected_vein)
-                if insertion_point_screen.exec() == QDialog.DialogCode.Accepted:
-                    self.selected_insertion_point = insertion_point_screen.selected_point
-                    print(f"Selected Insertion Point: {self.selected_insertion_point}")  # Debug statement
-
-                    self.app_to_signal_processing.put([self.selected_vein, self.selected_insertion_point])
-                    print(f"{list(self.app_to_signal_processing.queue)=}")
-
-                    # Launch Feedback UI with selected vein and insertion point
-                    feedback_ui = FeedbackUI(self.selected_vein,
-                                             self.selected_insertion_point,
-                                             work_queue=self.sig_processed_queue,
-                                             angle_range_queue=self.angle_range_queue,
-                                             app_to_signal_processing=self.app_to_signal_processing,
-                                             direction_intruction_queue = self.direction_intruction_queue)
-                    feedback_ui.show()
-                    sys.exit(self.app.exec())
-
-if __name__ == "__main__":
-    sig_processed = Queue()
-    app_to_signal_processing = Queue()
-    angle_range_queue = Queue()
-    main_app = MainApplication(sig_processed, app_to_signal_processing, angle_range_queue)
-    main_app.run()
+                if result == QDialog.DialogCode.Accepted:
+                    selected_vein = vein_screen.selected_vein
+                    # Pick Insertion Point Screen
+                    insertion_point_screen = PickInsertionPointScreen(selected_vein)
+                    if insertion_point_screen.exec() == QDialog.DialogCode.Accepted:
+                        selected_point = insertion_point_screen.selected_point
+                        self.app_to_signal_processing.put([selected_vein, selected_point])
+                        # Launch Feedback UI
+                        feedback_ui = FeedbackUI(
+                            selected_vein,
+                            selected_point,
+                            work_queue=self.sig_processed_queue,
+                            angle_range_queue=self.angle_range_queue,
+                            app_to_signal_processing=self.app_to_signal_processing,
+                            direction_intruction_queue=self.direction_intruction_queue
+                        )
+                        feedback_ui.show()
+                        sys.exit(self.app.exec())
+                else:
+                    continue  # Go back to IntroScreen
+            else:
+                break  # Exit the app
