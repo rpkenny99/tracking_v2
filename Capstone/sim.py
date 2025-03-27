@@ -9,7 +9,7 @@ from Filter.Filter_Graphs import process_file_2
 from SignalProcessing.signal_processing import sig_processing
 from SignalProcessing.feedback_monitor import monitor
 from Feedback.updated_feeback import MainApplication
-from Projection.imgProj10 import start
+
 import time
 logging.basicConfig(format='%(levelname)s - %(asctime)s.%(msecs)03d: %(message)s',datefmt='%H:%M:%S', level=logging.DEBUG)
 
@@ -47,6 +47,7 @@ def main():
     simulation_running_queue = Queue()
     focal_point_queue = Queue()
     direction_intruction_queue = Queue()
+    user_score_queue = Queue()
 
     file_lock = Lock()
 
@@ -59,19 +60,21 @@ def main():
                                                     simulation_running_queue,
                                                     file_lock,
                                                     focal_point_queue,
-                                                    direction_intruction_queue], daemon=True)
+                                                    direction_intruction_queue,
+                                                    user_score_queue], daemon=True)
     # signal_processing = Thread(target=sig_processing, args=[filtered, sig_processed, app_to_signal_processing, angle_range_queue], daemon=True)
 
     raw_tracking.start()
     filter.start()
-    feedback_monitor.start()
+    feedback_monitor.start()              
 
     # Run the PyQt GUI in the main thread
     
     main_app = MainApplication(sig_processed,
                                app_to_signal_processing,
                                angle_range_queue,
-                               direction_intruction_queue)
+                               direction_intruction_queue,
+                               user_score_queue)
     while True:
         if tracking_ready.get() == 1:
             break

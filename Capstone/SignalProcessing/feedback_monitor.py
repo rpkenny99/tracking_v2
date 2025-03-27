@@ -4,6 +4,7 @@ from queue import Queue, Empty
 from DTW.DTW_working import compute_dtw
 import os
 import time
+import numpy as np
 
 def remove_first_n_lines(file_path, file_lock, n=10):
     with file_lock:
@@ -62,7 +63,8 @@ def monitor(filtered,
             simulation_running_queue,
             lock,
             focal_point_queue,
-            direction_intruction_queue):
+            direction_intruction_queue,
+            user_score_queue):
     """
     Receives live trajectory data, finds the closest mean trajectory point, and 
     checks if it's within the standard deviation bounds.
@@ -88,7 +90,25 @@ def monitor(filtered,
             remove_first_n_lines(r"Capstone/Filter/filtered_data.txt", lock, 10)
          
             # Call Dynamic Time Warping
-            compute_dtw(fp, lock)
+            average_similarity = compute_dtw(file_lock=lock)
+            
+            if not average_similarity:
+                user_score = 0
+            else:
+                score = np.mean(average_similarity)
+
+                if score < 100:
+                    user_score = 3
+                elif score < 180:
+                    user_score = 2
+                else:
+                    user_score = 3
+
+            print(f"Got score {user_score=}\n")
+
+            user_score_queue.put(user_score)
+
+            print('Put user score in queue')
 
             # Clear this queue
             while True:

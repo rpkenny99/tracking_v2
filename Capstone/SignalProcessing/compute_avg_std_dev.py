@@ -90,8 +90,8 @@ def plot_trajectories(mean_traj, upper_bound, lower_bound, trajectories):
     ax.plot(live_trajectory[:, 0], live_trajectory[:, 1], live_trajectory[:, 2], 'g-', linewidth=2, label="LIVE")
 
     # Plot all individual trajectories
-    for i, traj in enumerate(trajectories):
-        ax.plot(traj[:, 0], traj[:, 1], traj[:, 2], alpha=0.4, label=f'Trajectory {i+1}')
+    # for i, traj in enumerate(trajectories):
+    #     ax.plot(traj[:, 0], traj[:, 1], traj[:, 2], alpha=0.4, label=f'Trajectory {i+1}')
 
     # Label axes
     ax.set_xlabel('X')

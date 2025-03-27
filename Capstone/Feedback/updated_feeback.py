@@ -205,7 +205,8 @@ class FeedbackUI(QMainWindow):
                  work_queue=None,
                  angle_range_queue=None,
                  app_to_signal_processing=None,
-                 direction_intruction_queue = None):
+                 direction_intruction_queue = None,
+                 user_score_queue=None):
         super().__init__()
         self.setWindowTitle("Feedback UI - Needle Insertion")
         self.showFullScreen()  # Make the window maximized
@@ -219,6 +220,7 @@ class FeedbackUI(QMainWindow):
         self.angle_range_queue = angle_range_queue
         self.app_to_signal_processing = app_to_signal_processing
         self.direction_intruction_queue = direction_intruction_queue
+        self.user_score_queue = user_score_queue
 
         self.expert_pitch, _, self.expert_yaw, self.expert_pitch_std, _, self.expert_yaw_std = angle_range_queue.get()
 
@@ -525,6 +527,8 @@ class FeedbackUI(QMainWindow):
         #plot_container = QWidget()
         #plot_container.setLayout(QVBoxLayout())
         #plot_container.layout().setContentsMargins(0, 0, 0, 0)
+
+        print("Plotting Veins")
         
         
         # Create a matplotlib figure with a fully transparent background
@@ -955,6 +959,7 @@ class FeedbackUI(QMainWindow):
 
     def _endSimulation(self):
         """End the simulation and show the summary page."""
+        self.app_to_signal_processing.put([None, None])
         self.timer.stop()
         self._showSummaryPage()
 
@@ -963,34 +968,33 @@ class FeedbackUI(QMainWindow):
         angle_error = self.total_angle_deviation / self.max_updates
         depth_error = self.total_depth_deviation / self.max_updates
 
-        score = max(0, 10 - (angle_error + depth_error) / 10)
-        score = round(score, 2)
+        print("Getting score\n")
+        score = self.user_score_queue.get()
+        print("Got score\n")
 
-        if score == 10:
+        if score == 3:
             feedback = ("Excellent performance! Your actions demonstrate a high level of accuracy and precision." 
                        "Maintain this level of focus and attention to detail in future tasks. Great job!")
-        elif score >= 7:
+        elif score == 2:
             feedback = ("Good performance! You show a solid understanding of the task, but there are occasional minor errors."
                         "To improve further, double-check your movements or decisions to ensure consistency. " 
                         "Consider reviewing any specific steps where you felt less confident.")
-        elif score >= 5:
-            feedback = (
-                "Fair performance. While you understand the basics, there are noticeable areas of inconsistency. "
-                "Analyze where mistakes occurred—was it in positioning, timing, or precision? "
-                "Practice those specific aspects, and seek feedback on how to refine your technique."
-            )
-        else:
+        elif score == 1:
             feedback = (
                 "Needs improvement. It seems there were significant challenges in accuracy or approach. "
                 "Take time to revisit the fundamental concepts and techniques. "
                 "Break the task into smaller steps, practice each one thoroughly, and don't hesitate to ask for guidance."
+            )
+        else:
+            feedback = (
+                "No data to compare"
             )
 
         dialog = QDialog(self)
         dialog.setWindowTitle("Simulation Summary")
         dialog_layout = QVBoxLayout()
 
-        dialog_layout.addWidget(QLabel(f"Final Score: {score}/10"))
+        dialog_layout.addWidget(QLabel(f"Final Score: {score}"))
         dialog_layout.addWidget(QLabel(feedback))
 
         # Button to return to the IntroScreen
@@ -998,7 +1002,6 @@ class FeedbackUI(QMainWindow):
         returnToIntroButton.clicked.connect(lambda: self._returnToIntroScreen(dialog))
         dialog_layout.addWidget(returnToIntroButton)
 
-        self.app_to_signal_processing.put([None, None])
         print(f"{list(self.app_to_signal_processing.queue)=}")
 
         dialog.setLayout(dialog_layout)
@@ -1029,15 +1032,22 @@ class FeedbackUI(QMainWindow):
                                                   work_queue=self.work_queue,
                                                   angle_range_queue=self.angle_range_queue,
                                                   app_to_signal_processing=self.app_to_signal_processing,
-                                                  direction_intruction_queue=self.direction_intruction_queue)
+                                                  direction_intruction_queue=self.direction_intruction_queue,
+                                                  user_score_queue=self.user_score_queue)
                     self.feedback_ui.show()
 
 class MainApplication:
-    def __init__(self, sig_processed_queue, app_to_signal_processing, angle_range_queue, direction_intruction_queue):
+    def __init__(self,
+                 sig_processed_queue,
+                 app_to_signal_processing,
+                 angle_range_queue,
+                 direction_intruction_queue,
+                 user_score_queue):
         self.sig_processed_queue = sig_processed_queue
         self.app_to_signal_processing = app_to_signal_processing
         self.angle_range_queue = angle_range_queue
         self.direction_intruction_queue = direction_intruction_queue
+        self.user_score_queue = user_score_queue
         self.app = QApplication(sys.argv)
 
     def run(self):
@@ -1063,7 +1073,8 @@ class MainApplication:
                             work_queue=self.sig_processed_queue,
                             angle_range_queue=self.angle_range_queue,
                             app_to_signal_processing=self.app_to_signal_processing,
-                            direction_intruction_queue=self.direction_intruction_queue
+                            direction_intruction_queue=self.direction_intruction_queue,
+                            user_score_queue=self.user_score_queue
                         )
                         feedback_ui.show()
                         sys.exit(self.app.exec())
