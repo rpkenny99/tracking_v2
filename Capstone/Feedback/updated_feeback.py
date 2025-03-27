@@ -25,7 +25,7 @@ class IntroScreen(QDialog):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Cyber-Physical Infant IV Simulator")
-        self.setFixedSize(1920, 1080)  # Make the window maximized
+        self.setFixedSize(500, 500)  # Make the window maximized
 
         layout = QVBoxLayout()
         label = QLabel("Cyber-Physical Infant IV Simulator")
@@ -70,7 +70,7 @@ class PickVeinScreen(QDialog):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Pick Your Vein")
-        self.setFixedSize(1920, 1000)
+        self.setFixedSize(500, 500)
         
         self.setStyleSheet("background-color: black; color: white;")
         self.setStyleSheet("""
@@ -154,7 +154,7 @@ class PickInsertionPointScreen(QDialog):
     def __init__(self, selected_vein):
         super().__init__()
         self.setWindowTitle("Pick Insertion Point")
-        self.setFixedSize(1920, 1000)
+        self.setFixedSize(500, 500)
         self.selected_vein = selected_vein
 
         # Main layout
@@ -293,6 +293,8 @@ class FeedbackUI(QMainWindow):
         # Set this for top-down perspective
         self.original_elev = 90
         self.original_azim = -90
+
+        
 
 
         # Debug statements
@@ -611,7 +613,7 @@ class FeedbackUI(QMainWindow):
         self.canvas.setStyleSheet("background-color: transparent;")  # Transparent canvas
 
         # Set a fixed size for the canvas to make the plot smaller
-        self.canvas.setFixedSize(700, 700)  # Adjust the size as needed
+        self.canvas.setFixedSize(500, 500)  # Adjust the size as needed
 
         # Add the canvas to the layout
         layout.addWidget(self.canvas, alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
@@ -633,6 +635,12 @@ class FeedbackUI(QMainWindow):
 
         # Plot the veins using the copied functions
         self.ax = self.figure.add_subplot(111, projection='3d')
+
+        self.ax.view_init(elev=self.original_elev, azim=self.original_azim)
+        self._showViewLabel("Side View")
+
+        self.view_toggle_state = False  # Start with YZ view
+
         self.ax.grid(False)  # Remove the grid
 
         # Ensure the axis background is fully transparent
@@ -1103,7 +1111,28 @@ class FeedbackUI(QMainWindow):
     def _returnToIntroScreen(self, dialog):
         """Return to the IntroScreen and restart the application flow."""
         dialog.close()  # Close the summary dialog
-        self.close()    # Close the FeedbackUI window
+
+        # Stop everything
+        for timer in [self.timer, self.session_timer, self.view_toggle_timer, self.live_update_timer]:
+            timer.stop()
+        if hasattr(self, 'view_animation_timer'):
+            self.view_animation_timer.stop()
+        if hasattr(self, 'label_fade_in_timer'):
+            self.label_fade_in_timer.stop()
+        if hasattr(self, 'label_fade_out_timer'):
+            self.label_fade_out_timer.stop()
+
+        self.arrow_up_movie.stop()
+        self.arrow_down_movie.stop()
+        self.arrow_left_movie.stop()
+        self.arrow_right_movie.stop()
+
+        self.canvas.setParent(None)
+        self.figure.clear()
+        plt.close(self.figure)
+
+        self.close()
+        self.deleteLater()
 
         # Re-launch the intro screen
         intro_screen = IntroScreen()
