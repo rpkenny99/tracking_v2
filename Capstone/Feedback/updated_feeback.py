@@ -20,10 +20,40 @@ import matplotlib
 # Hide debug messages (only show warnings and above)
 matplotlib.set_loglevel("warning")
 
+JET_BLACK_STYLE = """
+    QWidget {
+        background-color: #121212;  /* Jet black */
+        color: white;  /* Default text color */
+    }
+    
+    QLabel {
+        color: white;
+    }
+    
+    QTextEdit, QLineEdit {
+        background-color: #1E1E1E;
+        color: white;
+        border: 1px solid #333;
+    }
+    
+    QGroupBox {
+        border: 1px solid #333;
+        border-radius: 5px;
+        margin-top: 10px;
+    }
+    
+    QGroupBox::title {
+        color: white;
+        subcontrol-origin: margin;
+        left: 10px;
+    }
+"""
+
 class IntroScreen(QDialog):
     """Introductory screen to start the simulation."""
     def __init__(self):
         super().__init__()
+        self.setStyleSheet(JET_BLACK_STYLE)
         self.setWindowTitle("Cyber-Physical Infant IV Simulator")
         self.setFixedSize(1920, 1080)  # Make the window maximized
 
@@ -39,11 +69,52 @@ class IntroScreen(QDialog):
         layout.addWidget(label)
 
         start_button = QPushButton("Start Simulation")
+        start_button.setStyleSheet("""
+            QPushButton {
+                background-color: #87CEEB;  /* Sky blue */
+                color: black;
+                font-size: 20px;
+                font-weight: bold;
+                padding: 15px 30px;
+                border-radius: 10px;
+                margin: 10px;
+                border: 2px solid #4682B4;  /* Steel blue border */
+                min-width: 200px;
+            }
+            QPushButton:hover {
+                background-color: #B0E2FF;  /* Light sky blue */
+                border: 2px solid #87CEEB;
+            }
+            QPushButton:pressed {
+                background-color: #4682B4;  /* Steel blue */
+                color: white;
+            }
+        """)
         start_button.clicked.connect(self.accept)  # Close the dialog on click
         layout.addWidget(start_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # Exit Button (optional)
+        # Exit Button (Red)
         exit_button = QPushButton("Exit")
+        exit_button.setStyleSheet("""
+            QPushButton {
+                background-color: #FF3333;  /* Bright red */
+                color: white;
+                font-size: 20px;
+                font-weight: bold;
+                padding: 15px 30px;
+                border-radius: 10px;
+                margin: 10px;
+                border: 2px solid #CC0000;  /* Darker red border */
+                min-width: 200px;
+            }
+            QPushButton:hover {
+                background-color: #FF6666;  /* Lighter red */
+                border: 2px solid #FF3333;
+            }
+            QPushButton:pressed {
+                background-color: #CC0000;  /* Darker red */
+            }
+        """)
         exit_button.clicked.connect(self.reject)  # Close the app
         layout.addWidget(exit_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
@@ -69,6 +140,7 @@ class PickVeinScreen(QDialog):
     """Choose the Vein to be pierced."""
     def __init__(self):
         super().__init__()
+        self.setStyleSheet(JET_BLACK_STYLE)
         self.setWindowTitle("Pick Your Vein")
         self.setFixedSize(1920, 1080)
         
@@ -97,6 +169,25 @@ class PickVeinScreen(QDialog):
         
         # Go Back Button (Left-aligned)
         back_button = QPushButton("← Go Back")
+        back_button.setStyleSheet("""
+            QPushButton {
+                background-color: #FFD700;  /* Bright yellow */
+                color: black;              /* Black text for better contrast */
+                font-size: 20px;
+                font-weight: bold;
+                padding: 15px 30px;
+                border-radius: 10px;
+                margin-top: 10px;
+                border: 2px solid #DAA520; /* Gold border */
+            }
+            QPushButton:hover {
+                background-color: #FFEC8B;  /* Lighter yellow on hover */
+                border: 2px solid #FFD700;
+            }
+            QPushButton:pressed {
+                background-color: #DAA520;  /* Darker yellow when pressed */
+            }
+        """)
         back_button.clicked.connect(self.go_back)
         top_bar_layout.addWidget(back_button, alignment=Qt.AlignmentFlag.AlignLeft)
 
@@ -129,10 +220,50 @@ class PickVeinScreen(QDialog):
         # Vein Selection Buttons
         button_layout = QHBoxLayout()
         left_vein_button = QPushButton("Left Vein")
+        left_vein_button.setStyleSheet("""
+            QPushButton {
+                background-color: #87CEEB;  /* Sky blue */
+                color: black;
+                font-size: 20px;
+                font-weight: bold;
+                padding: 15px 30px;
+                border-radius: 10px;
+                margin: 5px;
+                border: 2px solid #4682B4;  /* Steel blue border */
+            }
+            QPushButton:hover {
+                background-color: #B0E2FF;  /* Light sky blue */
+                border: 2px solid #87CEEB;
+            }
+            QPushButton:pressed {
+                background-color: #4682B4;  /* Steel blue */
+                color: white;
+            }
+        """)
         left_vein_button.clicked.connect(self.select_left_vein)
         button_layout.addWidget(left_vein_button)
 
         right_vein_button = QPushButton("Right Vein")
+        right_vein_button.setStyleSheet("""
+            QPushButton {
+                background-color: #87CEEB;  /* Sky blue */
+                color: black;
+                font-size: 20px;
+                font-weight: bold;
+                padding: 15px 30px;
+                border-radius: 10px;
+                margin: 5px;
+                border: 2px solid #4682B4;  /* Steel blue border */
+            }
+            QPushButton:hover {
+                background-color: #B0E2FF;  /* Light sky blue */
+                border: 2px solid #87CEEB;
+            }
+            QPushButton:pressed {
+                background-color: #4682B4;  /* Steel blue */
+                color: white;
+            }
+        """)
         right_vein_button.clicked.connect(self.select_right_vein)
         button_layout.addWidget(right_vein_button)
 
@@ -153,6 +284,7 @@ class PickVeinScreen(QDialog):
 class PickInsertionPointScreen(QDialog):
     def __init__(self, selected_vein):
         super().__init__()
+        self.setStyleSheet(JET_BLACK_STYLE)
         self.setWindowTitle("Pick Insertion Point")
         self.setFixedSize(1920, 1080)
         self.selected_vein = selected_vein
@@ -165,6 +297,25 @@ class PickInsertionPointScreen(QDialog):
         
         # Go Back Button (Left-aligned)
         back_button = QPushButton("← Go Back")
+        back_button.setStyleSheet("""
+            QPushButton {
+                background-color: #FFD700;  /* Bright yellow */
+                color: black;              /* Black text for better contrast */
+                font-size: 20px;
+                font-weight: bold;
+                padding: 15px 30px;
+                border-radius: 10px;
+                margin-top: 10px;
+                border: 2px solid #DAA520; /* Gold border */
+            }
+            QPushButton:hover {
+                background-color: #FFEC8B;  /* Lighter yellow on hover */
+                border: 2px solid #FFD700;
+            }
+            QPushButton:pressed {
+                background-color: #DAA520;  /* Darker yellow when pressed */
+            }
+        """)
         back_button.clicked.connect(self.go_back)
         top_bar_layout.addWidget(back_button, alignment=Qt.AlignmentFlag.AlignLeft)
 
@@ -218,14 +369,74 @@ class PickInsertionPointScreen(QDialog):
         # Insertion Point Buttons
         button_layout = QHBoxLayout()
         point_a_button = QPushButton("Top")
+        point_a_button.setStyleSheet("""
+            QPushButton {
+                background-color: #87CEEB;  /* Sky blue */
+                color: black;
+                font-size: 20px;
+                font-weight: bold;
+                padding: 15px 30px;
+                border-radius: 10px;
+                margin: 5px;
+                border: 2px solid #4682B4;  /* Steel blue border */
+            }
+            QPushButton:hover {
+                background-color: #B0E2FF;  /* Light sky blue */
+                border: 2px solid #87CEEB;
+            }
+            QPushButton:pressed {
+                background-color: #4682B4;  /* Steel blue */
+                color: white;
+            }
+        """)
         point_a_button.clicked.connect(self.select_point_a)
         button_layout.addWidget(point_a_button)
 
         point_b_button = QPushButton("Middle")
+        point_b_button.setStyleSheet("""
+            QPushButton {
+                background-color: #87CEEB;  /* Sky blue */
+                color: black;
+                font-size: 20px;
+                font-weight: bold;
+                padding: 15px 30px;
+                border-radius: 10px;
+                margin: 5px;
+                border: 2px solid #4682B4;  /* Steel blue border */
+            }
+            QPushButton:hover {
+                background-color: #B0E2FF;  /* Light sky blue */
+                border: 2px solid #87CEEB;
+            }
+            QPushButton:pressed {
+                background-color: #4682B4;  /* Steel blue */
+                color: white;
+            }
+        """)
         point_b_button.clicked.connect(self.select_point_b)
         button_layout.addWidget(point_b_button)
 
         point_c_button = QPushButton("Bottom")
+        point_c_button.setStyleSheet("""
+            QPushButton {
+                background-color: #87CEEB;  /* Sky blue */
+                color: black;
+                font-size: 20px;
+                font-weight: bold;
+                padding: 15px 30px;
+                border-radius: 10px;
+                margin: 5px;
+                border: 2px solid #4682B4;  /* Steel blue border */
+            }
+            QPushButton:hover {
+                background-color: #B0E2FF;  /* Light sky blue */
+                border: 2px solid #87CEEB;
+            }
+            QPushButton:pressed {
+                background-color: #4682B4;  /* Steel blue */
+                color: white;
+            }
+        """)
         point_c_button.clicked.connect(self.select_point_c)
         button_layout.addWidget(point_c_button)
 
@@ -259,6 +470,7 @@ class FeedbackUI(QMainWindow):
                  direction_intruction_queue = None,
                  user_score_queue=None):
         super().__init__()
+        self.setStyleSheet(JET_BLACK_STYLE)
         self.setWindowTitle("Feedback UI - Needle Insertion")
         self.showFullScreen()  # Make the window maximized
 
@@ -444,30 +656,27 @@ class FeedbackUI(QMainWindow):
 
         # Directional arrows (GIFs)
         self.arrow_up = QLabel(self.arm_image_label)
-        self.arrow_up.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.arrow_up.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground,True)
         self.arrow_up_movie = QMovie("Capstone/Feedback/arrows/up-arrow.gif")
-        self.arrow_up_movie.setScaledSize(QSize(100, 100))
         self.arrow_up.setMovie(self.arrow_up_movie)
         self.arrow_up.setVisible(False)
 
         self.arrow_down = QLabel(self.arm_image_label)
-        self.arrow_down.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.arrow_down.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.arrow_down_movie = QMovie("Capstone/Feedback/arrows/down-arrow.gif")
         self.arrow_down_movie.setScaledSize(QSize(100, 100))
         self.arrow_down.setMovie(self.arrow_down_movie)
         self.arrow_down.setVisible(False)
 
         self.arrow_left = QLabel(self.arm_image_label)
-        self.arrow_left.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.arrow_left.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground,True)
         self.arrow_left_movie = QMovie("Capstone/Feedback/arrows/left-arrow.gif")
-        self.arrow_left_movie.setScaledSize(QSize(100, 100))
         self.arrow_left.setMovie(self.arrow_left_movie)
         self.arrow_left.setVisible(False)
 
         self.arrow_right = QLabel(self.arm_image_label)
-        self.arrow_right.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.arrow_right.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground,True)
         self.arrow_right_movie = QMovie("Capstone/Feedback/arrows/right-arrow.gif")
-        self.arrow_right_movie.setScaledSize(QSize(100, 100))
         self.arrow_right.setMovie(self.arrow_right_movie)
         self.arrow_right.setVisible(False)
 
