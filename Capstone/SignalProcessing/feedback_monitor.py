@@ -91,7 +91,7 @@ def monitor(filtered,
          
             # Call Dynamic Time Warping
             average_similarity = compute_dtw(file_lock=lock)
-            
+
             if not average_similarity:
                 user_score = 0
             else:
@@ -102,7 +102,7 @@ def monitor(filtered,
                 elif score < 180:
                     user_score = 2
                 else:
-                    user_score = 3
+                    user_score = 1
 
             print(f"Got score {user_score=}\n")
 
