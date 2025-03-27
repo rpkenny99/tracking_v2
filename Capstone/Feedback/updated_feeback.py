@@ -14,7 +14,7 @@ from matplotlib.figure import Figure
 from queue import Queue
 from SignalProcessing.compute_avg_std_dev import get_mean_std_bounds, STD_ACCEPTABLE
 from PyQt6.QtGui import QPixmap, QTransform
-
+from mpl_toolkits.mplot3d import Axes3D
 
 import matplotlib
 # Hide debug messages (only show warnings and above)
@@ -929,7 +929,7 @@ class FeedbackUI(QMainWindow):
                     self.arrow_down.setVisible(True)
 
         return "\n".join(feedback) + "\n" + "-" * 40
-
+    
     def _restartSimulation(self):
         """Restart the simulation."""
         self.positionInput.setText("(0.00, 0.00, 0.00)")
@@ -964,7 +964,7 @@ class FeedbackUI(QMainWindow):
         self._showSummaryPage()
 
     def _showSummaryPage(self):
-        """Display the summary of the simulation."""
+        """Display the simulation summary with a full-screen dialog and styled 3D plot."""
         angle_error = self.total_angle_deviation / self.max_updates
         depth_error = self.total_depth_deviation / self.max_updates
 
@@ -974,38 +974,99 @@ class FeedbackUI(QMainWindow):
 
         if score == 3:
             feedback = ("Excellent performance! Your actions demonstrate a high level of accuracy and precision." 
-                       "Maintain this level of focus and attention to detail in future tasks. Great job!")
+                    " Maintain this level of focus and attention to detail in future tasks. Great job!")
         elif score == 2:
             feedback = ("Good performance! You show a solid understanding of the task, but there are occasional minor errors."
-                        "To improve further, double-check your movements or decisions to ensure consistency. " 
-                        "Consider reviewing any specific steps where you felt less confident.")
+                        " To improve further, double-check your movements or decisions to ensure consistency."
+                        " Consider reviewing any specific steps where you felt less confident.")
         elif score == 1:
             feedback = (
-                "Needs improvement. It seems there were significant challenges in accuracy or approach. "
-                "Take time to revisit the fundamental concepts and techniques. "
-                "Break the task into smaller steps, practice each one thoroughly, and don't hesitate to ask for guidance."
+                "Needs improvement. It seems there were significant challenges in accuracy or approach."
+                " Take time to revisit the fundamental concepts and techniques."
+                " Break the task into smaller steps, practice each one thoroughly, and don't hesitate to ask for guidance."
             )
         else:
-            feedback = (
-                "No data to compare"
-            )
+            feedback = "No data to compare"
 
+        # Load data
+        live_traj = np.loadtxt("Capstone/Filter/filtered_data.txt")
+        expert_traj = np.loadtxt("Capstone/SignalProcessing/expert_data/right-vein/middle/mean_traj.txt")
+
+        # Create Matplotlib figure with black background
+        fig = Figure(figsize=(8, 6), facecolor='black')
+        canvas = FigureCanvas(fig)
+        ax = fig.add_subplot(111, projection='3d', facecolor='black')
+
+        # Set plot and axes styles
+        ax.grid(False)
+        ax.set_facecolor('black')
+        ax.tick_params(colors='white')
+        ax.xaxis.label.set_color('white')
+        ax.yaxis.label.set_color('white')
+        ax.zaxis.label.set_color('white')
+        ax.title.set_color('white')
+
+        # Plot expert and live trajectories with bright colors
+        ax.plot(expert_traj[:, 0], expert_traj[:, 1], expert_traj[:, 2], color='cyan', linewidth=2, label="Expert (Mean)")
+        ax.plot(live_traj[:, 0], live_traj[:, 1], live_traj[:, 2], color='lime', linewidth=2, label="Live")
+
+        # Markers
+        ax.scatter(live_traj[0][0], live_traj[0][1], live_traj[0][2], color='lime', marker='o', s=50, label='Live Start')
+        ax.scatter(live_traj[-1][0], live_traj[-1][1], live_traj[-1][2], color='lime', marker='x', s=50, label='Live End')
+        ax.scatter(expert_traj[0][0], expert_traj[0][1], expert_traj[0][2], color='cyan', marker='o', s=50, label='Expert Start')
+        ax.scatter(expert_traj[-1][0], expert_traj[-1][1], expert_traj[-1][2], color='cyan', marker='x', s=50, label='Expert End')
+
+
+        # Labels
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        ax.set_title('Live vs Expert Trajectory')
+
+        ax.legend(facecolor='black', labelcolor='white')
+
+        # Start rotating the 3D view using QTimer
+        self.rotation_angle = 0
+
+        def rotate_plot():
+            self.rotation_angle = (self.rotation_angle + 1) % 360
+            ax.view_init(elev=30, azim=self.rotation_angle)
+            canvas.draw_idle()
+
+        self.rotation_timer = QTimer()
+        self.rotation_timer.timeout.connect(rotate_plot)
+        self.rotation_timer.start(50)  # 50 ms → ~20 FPS smoothness
+
+        # Create fullscreen dialog
         dialog = QDialog(self)
         dialog.setWindowTitle("Simulation Summary")
         dialog_layout = QVBoxLayout()
 
-        dialog_layout.addWidget(QLabel(f"Final Score: {score}"))
-        dialog_layout.addWidget(QLabel(feedback))
+        summary_label = QLabel(f"Final Score: {score}")
+        summary_label.setStyleSheet("color: white; font-size: 58px; font-weight: bold;")
+        summary_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        feedback_label = QLabel(feedback)
+        feedback_label.setWordWrap(True)
+        feedback_label.setStyleSheet("color: white; font-size: 40px; font-weight: bold;")
+        feedback_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Button to return to the IntroScreen
+        # Return button
         returnToIntroButton = QPushButton("Return to Start")
         returnToIntroButton.clicked.connect(lambda: self._returnToIntroScreen(dialog))
-        dialog_layout.addWidget(returnToIntroButton)
+        returnToIntroButton.setStyleSheet("font-size: 16px; padding: 6px;")
 
-        print(f"{list(self.app_to_signal_processing.queue)=}")
+        # Assemble layout
+        dialog_layout.addWidget(summary_label)
+        dialog_layout.addWidget(feedback_label)
+        dialog_layout.addWidget(canvas)
+        dialog_layout.addWidget(returnToIntroButton, alignment=Qt.AlignmentFlag.AlignCenter)
 
         dialog.setLayout(dialog_layout)
+        dialog.setStyleSheet("background-color: black;")
+        dialog.showFullScreen()  # Fullscreen
+
         dialog.exec()
+
 
     def _returnToIntroScreen(self, dialog):
         """Return to the IntroScreen and restart the application flow."""

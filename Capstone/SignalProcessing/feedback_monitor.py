@@ -97,9 +97,9 @@ def monitor(filtered,
             else:
                 score = np.mean(average_similarity)
 
-                if score < 100:
+                if score < 75:
                     user_score = 3
-                elif score < 180:
+                elif score < 110:
                     user_score = 2
                 else:
                     user_score = 1
