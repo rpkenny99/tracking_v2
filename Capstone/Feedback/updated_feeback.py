@@ -25,7 +25,7 @@ class IntroScreen(QDialog):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Cyber-Physical Infant IV Simulator")
-        self.setFixedSize(500, 500)  # Make the window maximized
+        self.setFixedSize(1920, 1080)  # Make the window maximized
 
         layout = QVBoxLayout()
         label = QLabel("Cyber-Physical Infant IV Simulator")
@@ -70,7 +70,7 @@ class PickVeinScreen(QDialog):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Pick Your Vein")
-        self.setFixedSize(500, 500)
+        self.setFixedSize(1920, 1080)
         
         self.setStyleSheet("background-color: black; color: white;")
         self.setStyleSheet("""
@@ -154,7 +154,7 @@ class PickInsertionPointScreen(QDialog):
     def __init__(self, selected_vein):
         super().__init__()
         self.setWindowTitle("Pick Insertion Point")
-        self.setFixedSize(500, 500)
+        self.setFixedSize(1920, 1080)
         self.selected_vein = selected_vein
 
         # Main layout
@@ -756,6 +756,35 @@ class FeedbackUI(QMainWindow):
         self.view_animation_timer.timeout.connect(self._animateViewTransition)
         self.view_animation_timer.start(25)
 
+    def cleanup(self):
+        for timer in [self.timer, self.session_timer, self.view_toggle_timer, self.live_update_timer]:
+            if timer:
+                timer.stop()
+                timer.deleteLater()
+
+        for optional in ["view_animation_timer", "label_fade_in_timer", "label_fade_out_timer", "rotation_timer"]:
+            if hasattr(self, optional):
+                getattr(self, optional).stop()
+                getattr(self, optional).deleteLater()
+
+        for movie in [self.arrow_up_movie, self.arrow_down_movie, self.arrow_left_movie, self.arrow_right_movie]:
+            movie.stop()
+            del movie
+
+        self.canvas.setParent(None)
+        self.ax.cla()
+        self.figure.clear()
+        plt.close(self.figure)
+
+        if hasattr(self, 'live_trajectory_queue'):
+            self.live_trajectory_queue.queue.clear()
+
+        if hasattr(self, 'live_trajectory_buffer'):
+            self.live_trajectory_buffer.clear()
+
+        self.close
+        self.deleteLater()
+
     def _showViewLabel(self, text):
         """Display a view label that fades in and out."""
         self.view_label.setText(text)
@@ -1112,11 +1141,14 @@ class FeedbackUI(QMainWindow):
 
         # Plot expert and live trajectories with bright colors
         ax.plot(expert_traj[:, 0], expert_traj[:, 1], expert_traj[:, 2], color='cyan', linewidth=2, label="Expert (Mean)")
-        ax.plot(live_traj[:, 0], live_traj[:, 1], live_traj[:, 2], color='lime', linewidth=2, label="Live")
+        try:
+            ax.plot(live_traj[:, 0], live_traj[:, 1], live_traj[:, 2], color='lime', linewidth=2, label="Live")
 
-        # Markers
-        ax.scatter(live_traj[0][0], live_traj[0][1], live_traj[0][2], color='lime', marker='o', s=50, label='Live Start')
-        ax.scatter(live_traj[-1][0], live_traj[-1][1], live_traj[-1][2], color='lime', marker='x', s=50, label='Live End')
+            # Markers
+            ax.scatter(live_traj[0][0], live_traj[0][1], live_traj[0][2], color='lime', marker='o', s=50, label='Live Start')
+            ax.scatter(live_traj[-1][0], live_traj[-1][1], live_traj[-1][2], color='lime', marker='x', s=50, label='Live End')
+        except IndexError as e:
+            pass
         ax.scatter(expert_traj[0][0], expert_traj[0][1], expert_traj[0][2], color='cyan', marker='o', s=50, label='Expert Start')
         ax.scatter(expert_traj[-1][0], expert_traj[-1][1], expert_traj[-1][2], color='cyan', marker='x', s=50, label='Expert End')
 
@@ -1177,23 +1209,7 @@ class FeedbackUI(QMainWindow):
         dialog.close()  # Close the summary dialog
 
         # Stop everything
-        for timer in [self.timer, self.session_timer, self.view_toggle_timer, self.live_update_timer]:
-            timer.stop()
-        if hasattr(self, 'view_animation_timer'):
-            self.view_animation_timer.stop()
-        if hasattr(self, 'label_fade_in_timer'):
-            self.label_fade_in_timer.stop()
-        if hasattr(self, 'label_fade_out_timer'):
-            self.label_fade_out_timer.stop()
-
-        self.arrow_up_movie.stop()
-        self.arrow_down_movie.stop()
-        self.arrow_left_movie.stop()
-        self.arrow_right_movie.stop()
-
-        self.canvas.setParent(None)
-        self.figure.clear()
-        plt.close(self.figure)
+        self.cleanup()
 
         self.close()
         self.deleteLater()
