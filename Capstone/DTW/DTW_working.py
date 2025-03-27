@@ -11,7 +11,6 @@ def load_multidimensional_data_as_dataframe(file_path):
     Load a dataset from a specified text file path as a DataFrame.
     """ 
     try:
-        # Update the line where you load the data
         data = pd.read_csv(file_path, sep='\s+', header=None)
         print(f"Loaded data from {file_path}")
         return data
@@ -43,33 +42,7 @@ def compute_dtw_per_dimension_parallel(array1, array2):
 
     return similarity_scores
 
-# def plot_dtw_alignment(series1, series2, reference_name, dimension):
-#     """
-#     Plot the DTW alignment path and distance/time matrix for two sequences.
-#     """
-#     # Compute DTW and alignment path
-#     distance_matrix = dtw.distance_matrix([series1, series2], compact=False)
-#     alignment_path = dtw.warping_path(series1, series2)
-#
-#     # Plot distance matrix
-#     plt.figure(figsize=(8, 6))
-#     plt.imshow(distance_matrix, origin='lower', cmap='viridis', interpolation='nearest')
-#     plt.colorbar(label='Distance')
-#     plt.plot(*zip(*alignment_path), color='red')  # Add alignment path
-#     plt.title(f'Distance Matrix with Alignment Path (Dim {dimension}, {reference_name})')
-#     plt.xlabel('Index in Sequence 1')
-#     plt.ylabel('Index in Sequence 2')
-#     plt.show()
-#
-#     # Plot aligned sequences
-#     plt.figure(figsize=(10, 5))
-#     plt.plot(series1, label='Input Sequence', alpha=0.7)
-#     plt.plot(series2, label='Reference Sequence', alpha=0.7)
-#     plt.title(f'Aligned Sequences (Dim {dimension}, {reference_name})')
-#     plt.xlabel('Time')
-#     plt.ylabel('Value')
-#     plt.legend()
-#     plt.show()
+
 def plot_dtw_alignment(series1, series2, reference_name, dimension):
     """
     Plot the DTW alignment path and distance/time matrix for two sequences.
@@ -110,52 +83,6 @@ def plot_dtw_alignment(series1, series2, reference_name, dimension):
     plt.grid()
     plt.show()
 
-# def plot_combined_similarity_results(data_df1, data_df2, similarity_scores, reference_name):
-#     num_dimensions = data_df1.shape[1]
-#
-#     # Heatmap of DTW Similarity Scores
-#     plt.figure(figsize=(10, 6))
-#     plt.imshow([similarity_scores], cmap="viridis", aspect="auto")
-#     plt.colorbar(label="DTW Similarity Score")
-#     plt.xlabel("Dimension")
-#     plt.title(f"Heatmap of DTW Similarity Scores Across Dimensions ({reference_name})")
-#     plt.show()
-#
-#     # Line Plot of Average DTW Similarity Over Time
-#     avg_similarity_over_time = np.nanmean(
-#         [data_df1.iloc[:, dim] - data_df2.iloc[:, dim] for dim in range(num_dimensions)],
-#         axis=0
-#     )
-#
-#     plt.figure(figsize=(10, 5))
-#     plt.plot(avg_similarity_over_time, color="blue", label="Average Difference")
-#     plt.xlabel("Data Point")
-#     plt.ylabel("Average DTW Difference")
-#     plt.title(f"Average DTW Similarity Over Time ({reference_name})")
-#     plt.legend()
-#     plt.show()
-#
-#     # Parallel Coordinate Plot for both datasets
-#     plt.figure(figsize=(12, 6))
-#     for dim in range(num_dimensions):
-#         plt.plot(data_df1[dim], label=f"Dimension {dim} - Dataset 1", alpha=0.7)
-#         plt.plot(data_df2[dim], label=f"Dimension {dim} - {reference_name}", linestyle="--", alpha=0.7)
-#     plt.xlabel("Data Points")
-#     plt.ylabel("Value")
-#     plt.title(f"Parallel Coordinate Plot of All Dimensions ({reference_name})")
-#     plt.legend(loc="upper right", bbox_to_anchor=(1.15, 1), ncol=2, fontsize="small")
-#     plt.show()
-#
-#     # Dimensional Difference Plot for each dimension
-#     plt.figure(figsize=(12, 6))
-#     for dim in range(num_dimensions):
-#         difference = data_df1[dim] - data_df2[dim]
-#         plt.plot(difference, label=f"Dimension {dim}", alpha=0.7)
-#     plt.xlabel("Data Points")
-#     plt.ylabel("Difference")
-#     plt.title(f"Dimensional Difference Plot (Dataset 1 - {reference_name})")
-#     plt.legend(loc="upper right", bbox_to_anchor=(1.15, 1), ncol=2, fontsize="small")
-#     plt.show()
 from mpl_toolkits.mplot3d import Axes3D
 
 def plot_3d_trajectory(data1, data2, reference_name):
@@ -289,24 +216,10 @@ def compute_dtw(expert_data, file_lock, trainee_data="Capstone/Filter/filtered_d
                 print("Similarity scores for each dimension:", similarity_scores)
                 print("Average similarity score across all dimensions:", average_similarity)
 
-                # Check if the average similarity score is zero (identical datasets)
-                # if np.isclose(average_similarity, 0):
-                #     print(f"\nThe datasets {trainee_data} and {reference_name} are identical. No difference to analyze.")
-                #     continue  # Skip generating graphs for identical datasets
 
                 # Identify the three dimensions with the most difference (highest similarity scores)
                 most_different_indices = np.argsort(similarity_scores)[-3:][::-1]  # Top 3 highest scores
                 print(f"The three dimensions with the most difference (highest similarity scores) are: {most_different_indices}")
-
-                # Generate plots for the three dimensions with the most difference
-                # for dimension in most_different_indices:
-                #     print(f"\nGenerating plots for Dimension {dimension}...")
-                #     plot_dtw_alignment(
-                #         array1[:, dimension],
-                #         array2[:, dimension],
-                #         reference_name,
-                #         dimension
-                #     )
 
                 # Generate the combined similarity results graph
                 # plot_combined_similarity_results(input_data_df, reference_data_df, similarity_scores, reference_name)
