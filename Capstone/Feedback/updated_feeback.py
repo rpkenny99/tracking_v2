@@ -658,6 +658,7 @@ class FeedbackUI(QMainWindow):
         self.arrow_up = QLabel(self.arm_image_label)
         self.arrow_up.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground,True)
         self.arrow_up_movie = QMovie("Capstone/Feedback/arrows/up-arrow.gif")
+        self.arrow_up_movie.setScaledSize(QSize(100, 100))
         self.arrow_up.setMovie(self.arrow_up_movie)
         self.arrow_up.setVisible(False)
 
@@ -671,12 +672,14 @@ class FeedbackUI(QMainWindow):
         self.arrow_left = QLabel(self.arm_image_label)
         self.arrow_left.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground,True)
         self.arrow_left_movie = QMovie("Capstone/Feedback/arrows/left-arrow.gif")
+        self.arrow_left_movie.setScaledSize(QSize(100, 100))
         self.arrow_left.setMovie(self.arrow_left_movie)
         self.arrow_left.setVisible(False)
 
         self.arrow_right = QLabel(self.arm_image_label)
         self.arrow_right.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground,True)
         self.arrow_right_movie = QMovie("Capstone/Feedback/arrows/right-arrow.gif")
+        self.arrow_right_movie.setScaledSize(QSize(100, 100))
         self.arrow_right.setMovie(self.arrow_right_movie)
         self.arrow_right.setVisible(False)
 
