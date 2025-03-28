@@ -42,8 +42,8 @@ first_data = True
 
 MARKER_SIZE = 12
 MARKER_SIZE_ORIGIN = 50.8
-REFERENCE_RVEC = np.array([1.34787092,  1.48777377, -1.33087777])
-REFERENCE_TVEC = np.array([47.48753203,  75.58579679, 467.67749443])
+REFERENCE_RVEC = np.array([1.18597769,  1.54078279, -1.27426983])
+REFERENCE_TVEC = np.array([50.08943467,  87.039572  , 482.45685749])
 FPS = 30
 TIME_PER_FRAME = 1/FPS
 
@@ -795,7 +795,7 @@ def startTracking(queue, tracking_ready, focal_point_queue):
 
 if __name__ == "__main__":
     queue, tracking_ready, focal_point_queue = Queue(), Queue(), Queue()
-    # focal_point_queue.put("Left Vein")
+    focal_point_queue.put("Right Vein")
     startTracking(queue, tracking_ready, focal_point_queue)
 
 # sweep_dodecahedron_transform()

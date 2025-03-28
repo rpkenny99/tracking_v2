@@ -91,22 +91,19 @@ def monitor(filtered,
          
             # Call Dynamic Time Warping
             average_similarity = compute_dtw(file_lock=lock)
+            print(f"{average_similarity=}")
 
             if not average_similarity:
-                user_score = 0
+                user_score_percentage = -1
             else:
-                score = np.mean(average_similarity)
+                k = 0.00125  # Decay rate
+                user_score_percentage = round(100 * np.exp(-k * average_similarity), 1)
+                print(f"{np.exp(-k * average_similarity)=}, {100 * np.exp(-k * average_similarity)}")
 
-                if score < 75:
-                    user_score = 3
-                elif score < 110:
-                    user_score = 2
-                else:
-                    user_score = 1
 
-            print(f"Got score {user_score=}\n")
+            print(f"Got score {user_score_percentage=}\n")
 
-            user_score_queue.put(user_score)
+            user_score_queue.put(user_score_percentage)
 
             print('Put user score in queue')
 

@@ -111,25 +111,27 @@ def post_process_nominal_insertion_and_elevation_angles(left_right="LEFT", locat
     
 
 def main():
-    raw = Queue()
-    filtered = Queue()
-    tracking_ready = Queue()
+    # raw = Queue()
+    # filtered = Queue()
+    # tracking_ready = Queue()
+    # focal_point_queue = Queue()
+    # focal_point_queue.put("Right Vein")
 
-    raw_tracking = Thread(target=startTracking, args=[raw, tracking_ready], daemon=True)
-    filter = Thread(target=process_file_3, args=[raw, filtered], daemon=True)
+    # raw_tracking = Thread(target=startTracking, args=[raw, tracking_ready, focal_point_queue], daemon=True)
+    # filter = Thread(target=process_file_3, args=[raw, filtered], daemon=True)
 
-    raw_tracking.start()
-    filter.start()
+    # raw_tracking.start()
+    # filter.start()
 
-    raw_tracking.join()
-    display('raw tracking has finished')
+    # raw_tracking.join()
+    # display('raw tracking has finished')
 
-    filter.join()
-    display('filter has finished')
+    # filter.join()
+    # display('filter has finished')
 
-    # final_avg_pitch, final_avg_roll, final_avg_yaw, final_std_pitch, final_std_roll, final_std_yaw = post_process_nominal_insertion_and_elevation_angles()
+    final_avg_pitch, final_avg_roll, final_avg_yaw, final_std_pitch, final_std_roll, final_std_yaw = post_process_nominal_insertion_and_elevation_angles()
 
-    # print(f"{final_avg_pitch=}, {final_avg_roll=}, {final_avg_yaw=}, {final_std_pitch=}, {final_std_roll=}, {final_std_yaw=}")
+    print(f"{final_avg_pitch=}, {final_avg_roll=}, {final_avg_yaw=}, {final_std_pitch=}, {final_std_roll=}, {final_std_yaw=}")
 
     
 

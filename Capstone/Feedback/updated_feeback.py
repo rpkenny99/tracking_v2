@@ -1344,20 +1344,21 @@ class FeedbackUI(QMainWindow):
         score = self.user_score_queue.get()
         print("Got score\n")
 
-        if score == 3:
+        if score > 85:
             feedback = ("Excellent performance! Your actions demonstrate a high level of accuracy and precision." 
                     " Maintain this level of focus and attention to detail in future tasks. Great job!")
-        elif score == 2:
+        elif score > 65:
             feedback = ("Good performance! You show a solid understanding of the task, but there are occasional minor errors."
                         " To improve further, double-check your movements or decisions to ensure consistency."
                         " Consider reviewing any specific steps where you felt less confident.")
-        elif score == 1:
+        elif score >= 0:
             feedback = (
                 "Needs improvement. It seems there were significant challenges in accuracy or approach."
                 " Take time to revisit the fundamental concepts and techniques."
                 " Break the task into smaller steps, practice each one thoroughly, and don't hesitate to ask for guidance."
             )
         else:
+            score = 0
             feedback = "No data to compare"
 
         # Load data
@@ -1417,7 +1418,7 @@ class FeedbackUI(QMainWindow):
         dialog.setWindowTitle("Simulation Summary")
         dialog_layout = QVBoxLayout()
 
-        summary_label = QLabel(f"Final Score: {score}")
+        summary_label = QLabel(f"Final Score: {score}%")
         summary_label.setStyleSheet("color: white; font-size: 58px; font-weight: bold;")
         summary_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         feedback_label = QLabel(feedback)
