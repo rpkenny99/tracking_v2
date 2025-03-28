@@ -115,7 +115,7 @@ def compute_dtw(expert_data="Capstone/DTW/mean_dtw.txt",
                 f"\nThe similarity scores for {trainee_data} and {reference_name} are all NaN. Skipping analysis.")
         else:
             similarity_scores = np.delete(similarity_scores, -2)  # Remove second last entry
-            average_similarity = np.nanmean(similarity_scores)
+            average_similarity = np.max(similarity_scores)
             
 
             print(f"\nComparison with {reference_name}:")

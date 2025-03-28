@@ -55,7 +55,7 @@ class IntroScreen(QDialog):
         super().__init__()
         self.setStyleSheet(JET_BLACK_STYLE)
         self.setWindowTitle("Cyber-Physical Infant IV Simulator")
-        self.setFixedSize(1366, 700)  # Make the window maximized
+        self.setFixedSize(1920, 1020)  # Make the window maximized
 
         layout = QVBoxLayout()
         label = QLabel("Cyber-Physical Infant IV Simulator")
@@ -135,6 +135,7 @@ class IntroScreen(QDialog):
                 color: white;
             }
         """)
+        self.showFullScreen()
 
 class PickVeinScreen(QDialog):
     """Choose the Vein to be pierced."""
@@ -142,7 +143,7 @@ class PickVeinScreen(QDialog):
         super().__init__()
         self.setStyleSheet(JET_BLACK_STYLE)
         self.setWindowTitle("Pick Your Vein")
-        self.setFixedSize(1366, 700)
+        self.setFixedSize(1920, 1020)
         
         self.setStyleSheet("background-color: black; color: white;")
         self.setStyleSheet("""
@@ -270,6 +271,8 @@ class PickVeinScreen(QDialog):
         main_layout.addLayout(button_layout)
         self.setLayout(main_layout)
 
+        self.showFullScreen()
+
     def select_left_vein(self):
         self.selected_vein = "Left Vein"
         self.accept()
@@ -286,7 +289,7 @@ class PickInsertionPointScreen(QDialog):
         super().__init__()
         self.setStyleSheet(JET_BLACK_STYLE)
         self.setWindowTitle("Pick Insertion Point")
-        self.setFixedSize(1366, 700)
+        self.setFixedSize(1920, 1020)
         self.selected_vein = selected_vein
 
         # Main layout
@@ -443,6 +446,8 @@ class PickInsertionPointScreen(QDialog):
         main_layout.addLayout(button_layout)
         self.setLayout(main_layout)
 
+        self.showFullScreen()
+
     def select_point_a(self):
         self.selected_point = "Point A"
         self.accept()
@@ -577,16 +582,7 @@ class FeedbackUI(QMainWindow):
         # Create the Target Metrics box first
         self._createTargetMetricsBox(leftLayout)
 
-<<<<<<< HEAD
-        # ---- Modified Circle Indicators Section ----
-        leftLayout.addSpacing(70)
-        # Vertical layout for both circles (aligned left)
-        circleVerticalLayout = QVBoxLayout()
-        circleVerticalLayout.setSpacing(10)  # Space between circles
-        circleVerticalLayout.setAlignment(Qt.AlignmentFlag.AlignLeft)  # <-- Key change
 
-        # --- Angle of Insertion (Top Circle) ---
-=======
         # Create vertically stacked indicator widgets for the left side only
         def createIndicatorWidget(indicator: QLabel, label_text: str):
             layout = QVBoxLayout()
@@ -599,50 +595,19 @@ class FeedbackUI(QMainWindow):
             return layout
 
         # First Circle Indicator (Green)
->>>>>>> e2ebdd2 (Improved UI flow and changed colour of post-procedure feedback graphs)
         self.circleIndicator = QLabel(self)
         self.circleIndicator.setFixedSize(100, 100)
         self.circleIndicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._updateCircleIndicator(0)
 
-<<<<<<< HEAD
-        angleLabel = QLabel("Angle of Insertion")
-        angleLabel.setAlignment(Qt.AlignmentFlag.AlignLeft)  # <-- Align text left
-        angleLabel.setStyleSheet("font-weight: bold; padding-left: 5px;")  # <-- Add slight padding
 
-        # --- Elevation (Bottom Circle) ---
-=======
         # Second Circle Indicator (Blue)
->>>>>>> e2ebdd2 (Improved UI flow and changed colour of post-procedure feedback graphs)
         self.circleIndicator2 = QLabel(self)
         self.circleIndicator2.setFixedSize(100, 100)
         self.circleIndicator2.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._updateCircleIndicator2(0)
 
-<<<<<<< HEAD
-        elevationLabel = QLabel("Elevation")
-        elevationLabel.setAlignment(Qt.AlignmentFlag.AlignLeft)  # <-- Align text left
-        elevationLabel.setStyleSheet("font-weight: bold; padding-left: 5px;")  # <-- Add slight padding
 
-        # Add both circles to vertical layout
-        circleVerticalLayout.addWidget(self.circleIndicator)
-        circleVerticalLayout.addWidget(angleLabel)
-        circleVerticalLayout.addWidget(self.circleIndicator2)
-        circleVerticalLayout.addWidget(elevationLabel)
-
-        # Add to main left layout (no stretching)
-        leftLayout.addLayout(circleVerticalLayout)
-
-        # Rest of the UI setup remains unchanged...
-        armImageLayout = QHBoxLayout()
-        armImageLayout.addStretch()
-
-        # Arm Image (using absolute positioning instead of layouts)
-        self.arm_image_label = QLabel(self)
-        
-        # Load image (same as before)
-        if self.selected_vein == "Left Vein":
-=======
         # Create indicator layouts only on the left
         leftIndicatorsLayout = QVBoxLayout()
         leftIndicatorsLayout.addLayout(createIndicatorWidget(self.circleIndicator2, "Elevation"))
@@ -650,7 +615,6 @@ class FeedbackUI(QMainWindow):
 
         # Load the appropriate image based on the selected vein and insertion point
         if self.selected_vein == "Right Vein":
->>>>>>> e2ebdd2 (Improved UI flow and changed colour of post-procedure feedback graphs)
             if self.selected_point == "Point A":
                 self.pixmap = QPixmap("Capstone/Feedback/0007.png")
             elif self.selected_point == "Point B":
@@ -672,23 +636,6 @@ class FeedbackUI(QMainWindow):
                 self.pixmap = QPixmap("Capstone/Feedback/bottomrightvein-removebg-preview.png")
         else:
             self.pixmap = QPixmap("Capstone/Feedback/default_image.png")
-<<<<<<< HEAD
-        
-        # Flip and scale
-        transform = QTransform().rotate(180)
-        self.pixmap = self.pixmap.transformed(transform).scaled(335, 475)
-        
-        # Set initial position - ADJUST THESE VALUES AS NEEDED
-        image_x = 500  # Move right (increase this value)
-        image_y = 75  # Move up (decrease this value)
-        
-        self.arm_image_label.setPixmap(self.pixmap)
-        self.arm_image_label.setGeometry(image_x, image_y, self.pixmap.width(), self.pixmap.height())
-        self.arm_image_label.show()
-        #leftLayout.addWidget(self.arm_image_label)
-
-        #leftLayout.addLayout(armImageLayout)
-=======
 
         transform = QTransform().rotate(180)
         self.pixmap = self.pixmap.transformed(transform)
@@ -710,7 +657,6 @@ class FeedbackUI(QMainWindow):
         mainMiddleLayout.addLayout(imageLayout)
 
         leftLayout.addLayout(mainMiddleLayout)
->>>>>>> e2ebdd2 (Improved UI flow and changed colour of post-procedure feedback graphs)
 
         # Directional arrows (GIFs)
         self.arrow_up = QLabel(self.arm_image_label)
@@ -1418,7 +1364,7 @@ class FeedbackUI(QMainWindow):
         dialog.setWindowTitle("Simulation Summary")
         dialog_layout = QVBoxLayout()
 
-        summary_label = QLabel(f"Final Score: {score}%")
+        summary_label = QLabel(f"Final Score: {score}")
         summary_label.setStyleSheet("color: white; font-size: 58px; font-weight: bold;")
         summary_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         feedback_label = QLabel(feedback)

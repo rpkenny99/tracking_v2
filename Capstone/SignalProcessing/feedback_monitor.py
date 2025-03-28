@@ -97,8 +97,8 @@ def monitor(filtered,
                 user_score_percentage = -1
             else:
                 k = 0.00125  # Decay rate
-                user_score_percentage = round(100 * np.exp(-k * average_similarity), 1)
-                print(f"{np.exp(-k * average_similarity)=}, {100 * np.exp(-k * average_similarity)}")
+                user_score_percentage = round(100 * 10**(-k * average_similarity), 1)
+                print(f"{np.exp(-k * average_similarity)=}, {100 * 10**(-k * average_similarity)}")
 
 
             print(f"Got score {user_score_percentage=}\n")
