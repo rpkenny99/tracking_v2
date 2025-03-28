@@ -41,56 +41,6 @@ def compute_dtw_per_dimension_parallel(array1, array2):
 
     return similarity_scores
 
-# def compute_dtw(expert_data, trainee_data="Capstone/Filter/filtered_data.txt"):
-#     # Main program
-#     input_subdirectory = trainee_data
-#     reference_subdirectory = expert_data
-#     average_similarity = []
-    
-#     # input_data_df = load_multidimensional_data_as_dataframe(input_file_list)
-#     with file_lock:
-#         input_data_df = load_multidimensional_data_as_dataframe(trainee_data)
-
-#     # Loop through each reference dataset in the "reference" subdirectory
-#     reference_file_list = glob.glob(os.path.join(reference_subdirectory, "filtered_data_*.txt"))
-#     if not reference_file_list:
-#         print(f"No text files found in directory: {reference_subdirectory}")
-#         exit()
-#     else:
-#         for reference_file in reference_file_list:
-#             reference_data_df = load_multidimensional_data_as_dataframe(reference_file)
-#             reference_name = os.path.basename(reference_file)
-
-#             if input_data_df is not None and reference_data_df is not None:
-#                 # Convert to numpy arrays for DTW computation
-#                 array1 = input_data_df.to_numpy()
-#                 array2 = reference_data_df.to_numpy()
-
-#                 # Compute DTW similarity scores per dimension
-#                 similarity_scores = compute_dtw_per_dimension_parallel(array1, array2)
-
-#                 # Check if all similarity scores are NaN
-#                 if np.all(np.isnan(similarity_scores)):
-#                     print(
-#                         f"\nThe similarity scores for {trainee_data} and {reference_name} are all NaN. Skipping analysis.")
-#                     continue
-
-#                 # Calculate the average similarity score
-#                 average_similarity.append(np.nanmean(similarity_scores))
-
-#                 print(f"\nComparison with {reference_name}:")
-#                 print("Similarity scores for each dimension:", similarity_scores)
-#                 print("Average similarity score across all dimensions:", average_similarity)
-
-
-#                 # Identify the three dimensions with the most difference (highest similarity scores)
-#                 most_different_indices = np.argsort(similarity_scores)[-3:][::-1]  # Top 3 highest scores
-#                 print(f"The three dimensions with the most difference (highest similarity scores) are: {most_different_indices}")
-#             else:
-#                 print(f"Failed to load dataset: {reference_name}")
-#     return average_similarity
-
-
 def compute_dtw(expert_data="Capstone/DTW/mean_dtw.txt", 
                 file_lock=None, 
                 trainee_data="Capstone/Filter/filtered_data.txt"):

@@ -92,17 +92,35 @@ def monitor(filtered,
             # Call Dynamic Time Warping
             average_similarity = compute_dtw(file_lock=lock)
 
-            if not average_similarity:
-                user_score = 0
-            else:
-                score = np.mean(average_similarity)
+            # if not average_similarity:
+            #     user_score = 0
+            # else:
+            #     score = np.mean(average_similarity)
 
-                if score < 75:
-                    user_score = 3
-                elif score < 110:
-                    user_score = 2
-                else:
-                    user_score = 1
+            #     if score < 75:
+            #         user_score = 3
+            #     elif score < 110:
+            #         user_score = 2
+            #     else:
+            #         user_score = 1
+
+            #         average_similarity = compute_dtw(file_lock=lock)
+
+        if not average_similarity:
+            user_score_percentage = 0
+        else:
+            score = np.mean(average_similarity)
+
+            # Define min and max similarity score range
+            min_score = 0
+            max_score = 150  # Adjust this based on the expected range of scores
+
+            # Calculate percentage
+            user_score_percentage = ((score - min_score) / (max_score - min_score)) * 100
+
+            # Ensure percentage is within bounds
+            user_score_percentage = max(0, min(user_score_percentage, 100))
+
 
             print(f"Got score {user_score=}\n")
 
