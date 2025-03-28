@@ -2,7 +2,7 @@ from PyQt6.QtCore import QTimer, Qt, QSize
 from PyQt6.QtGui import QPixmap, QMovie, QFont, QColor, QPainter
 from PyQt6.QtWidgets import (
     QMainWindow, QApplication, QWidget, QVBoxLayout, QGridLayout, QLabel, QGraphicsOpacityEffect,
-    QLineEdit, QPushButton, QTextEdit, QGroupBox, QHBoxLayout, QDialog, QStackedWidget
+    QLineEdit, QPushButton, QTextEdit, QGroupBox, QHBoxLayout, QDialog, QStackedWidget, QMessageBox
 )
 import sys
 from random import uniform
@@ -274,8 +274,48 @@ class PickVeinScreen(QDialog):
         self.showFullScreen()
 
     def select_left_vein(self):
-        self.selected_vein = "Left Vein"
-        self.accept()
+        # Custom popup for unsupported point
+        dialog = QDialog(self)
+        dialog.setWindowTitle("⚠️ Unsupported Vein Data Set")
+        dialog.setModal(True)
+        dialog.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
+        dialog.setStyleSheet("""
+            QDialog {
+                background-color: #000000;
+                border: 2px solid #FFD700;
+                border-radius: 15px;
+            }
+            QLabel {
+                color: #FFFFFF;
+                font-size: 28px;
+                font-weight: bold;
+                padding: 20px;
+            }
+            QPushButton {
+                font-size: 24px;
+                padding: 10px 30px;
+                border-radius: 10px;
+                background-color: #FF4500;
+                color: white;
+            }
+            QPushButton:hover {
+                background-color: #FFA07A;
+                color: black;
+            }
+        """)
+
+        layout = QVBoxLayout()
+        message = QLabel("🚫 Left vein data set is currently not \navailable. Please select right.")
+        message.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(message)
+
+        button = QPushButton("OK")
+        button.clicked.connect(dialog.accept)
+        layout.addWidget(button, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        dialog.setLayout(layout)
+        dialog.setFixedSize(600, 300)
+        dialog.exec()
 
     def select_right_vein(self):
         self.selected_vein = "Right Vein"
@@ -449,16 +489,96 @@ class PickInsertionPointScreen(QDialog):
         self.showFullScreen()
 
     def select_point_a(self):
-        self.selected_point = "Point A"
-        self.accept()
+        # Custom popup for unsupported point
+        dialog = QDialog(self)
+        dialog.setWindowTitle("⚠️ Unsupported Insertion Point")
+        dialog.setModal(True)
+        dialog.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
+        dialog.setStyleSheet("""
+            QDialog {
+                background-color: #000000;
+                border: 2px solid #FFD700;
+                border-radius: 15px;
+            }
+            QLabel {
+                color: #FFFFFF;
+                font-size: 28px;
+                font-weight: bold;
+                padding: 20px;
+            }
+            QPushButton {
+                font-size: 24px;
+                padding: 10px 30px;
+                border-radius: 10px;
+                background-color: #FF4500;
+                color: white;
+            }
+            QPushButton:hover {
+                background-color: #FFA07A;
+                color: black;
+            }
+        """)
+
+        layout = QVBoxLayout()
+        message = QLabel("🚫 Top data set is currently not \navailable. Please select middle.")
+        message.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(message)
+
+        button = QPushButton("OK")
+        button.clicked.connect(dialog.accept)
+        layout.addWidget(button, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        dialog.setLayout(layout)
+        dialog.setFixedSize(600, 300)
+        dialog.exec()
 
     def select_point_b(self):
         self.selected_point = "Point B"
         self.accept()
 
     def select_point_c(self):
-        self.selected_point = "Point C"
-        self.accept()
+        # Custom popup for unsupported point
+        dialog = QDialog(self)
+        dialog.setWindowTitle("⚠️ Unsupported Insertion Point")
+        dialog.setModal(True)
+        dialog.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
+        dialog.setStyleSheet("""
+            QDialog {
+                background-color: #000000;
+                border: 2px solid #FFD700;
+                border-radius: 15px;
+            }
+            QLabel {
+                color: #FFFFFF;
+                font-size: 28px;
+                font-weight: bold;
+                padding: 20px;
+            }
+            QPushButton {
+                font-size: 24px;
+                padding: 10px 30px;
+                border-radius: 10px;
+                background-color: #FF4500;
+                color: white;
+            }
+            QPushButton:hover {
+                background-color: #FFA07A;
+                color: black;
+            }
+        """)
+
+        layout = QVBoxLayout()
+        message = QLabel("🚫 Bottom data set is currently not \n available. Please select middle.")
+        message.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(message)
+
+        button = QPushButton("OK")
+        button.clicked.connect(dialog.accept)
+        layout.addWidget(button, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        dialog.setLayout(layout)
+        dialog.setFixedSize(600, 300)
+        dialog.exec()
 
     def go_back(self):
         self.reject()  # Return to PickVeinScreen
