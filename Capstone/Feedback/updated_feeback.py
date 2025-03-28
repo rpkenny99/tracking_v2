@@ -357,9 +357,9 @@ class PickInsertionPointScreen(QDialog):
         # Arm Image with Clickable Points
         self.arm_image_label = QLabel(self)
         if self.selected_vein == "Left Vein":
-            self.pixmap = QPixmap("Capstone/Feedback/leftvein-removebg-preview.png")
-        elif self.selected_vein == "Right Vein":
             self.pixmap = QPixmap("Capstone/Feedback/rightvein-removebg-preview.png")
+        elif self.selected_vein == "Right Vein":
+            self.pixmap = QPixmap("Capstone/Feedback/leftvein-removebg-preview.png")
         transform = QTransform().rotate(180)
         self.pixmap = self.pixmap.transformed(transform)
         self.arm_image_label.setPixmap(self.pixmap.scaled(950, 450, Qt.AspectRatioMode.KeepAspectRatio))
@@ -537,6 +537,16 @@ class FeedbackUI(QMainWindow):
         self.timer.timeout.connect(self._updateData)
         self.timer.start(10)
 
+    def createIndicatorWidget(indicator: QLabel, label_text: str):
+            layout = QVBoxLayout()
+            layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(indicator)
+            text_label = QLabel(label_text)
+            text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            text_label.setStyleSheet("font-weight: bold;")
+            layout.addWidget(text_label)
+            return layout
+
     def _createDisplay(self):
         """Create the UI layout with the updated design."""
         # Session Timer in top-left corner
@@ -560,13 +570,14 @@ class FeedbackUI(QMainWindow):
         self.elapsed_seconds = 0
         self.session_timer = QTimer()
         self.session_timer.timeout.connect(self._updateSessionTimer)
-        self.session_timer.start(1000)  # Update every second
+        self.session_timer.start(1000)
 
         leftLayout = QVBoxLayout()
 
         # Create the Target Metrics box first
         self._createTargetMetricsBox(leftLayout)
 
+<<<<<<< HEAD
         # ---- Modified Circle Indicators Section ----
         leftLayout.addSpacing(70)
         # Vertical layout for both circles (aligned left)
@@ -575,21 +586,40 @@ class FeedbackUI(QMainWindow):
         circleVerticalLayout.setAlignment(Qt.AlignmentFlag.AlignLeft)  # <-- Key change
 
         # --- Angle of Insertion (Top Circle) ---
+=======
+        # Create vertically stacked indicator widgets for the left side only
+        def createIndicatorWidget(indicator: QLabel, label_text: str):
+            layout = QVBoxLayout()
+            layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(indicator)
+            text_label = QLabel(label_text)
+            text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            text_label.setStyleSheet("font-weight: bold;")
+            layout.addWidget(text_label)
+            return layout
+
+        # First Circle Indicator (Green)
+>>>>>>> e2ebdd2 (Improved UI flow and changed colour of post-procedure feedback graphs)
         self.circleIndicator = QLabel(self)
         self.circleIndicator.setFixedSize(100, 100)
         self.circleIndicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._updateCircleIndicator(0)
 
+<<<<<<< HEAD
         angleLabel = QLabel("Angle of Insertion")
         angleLabel.setAlignment(Qt.AlignmentFlag.AlignLeft)  # <-- Align text left
         angleLabel.setStyleSheet("font-weight: bold; padding-left: 5px;")  # <-- Add slight padding
 
         # --- Elevation (Bottom Circle) ---
+=======
+        # Second Circle Indicator (Blue)
+>>>>>>> e2ebdd2 (Improved UI flow and changed colour of post-procedure feedback graphs)
         self.circleIndicator2 = QLabel(self)
         self.circleIndicator2.setFixedSize(100, 100)
         self.circleIndicator2.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._updateCircleIndicator2(0)
 
+<<<<<<< HEAD
         elevationLabel = QLabel("Elevation")
         elevationLabel.setAlignment(Qt.AlignmentFlag.AlignLeft)  # <-- Align text left
         elevationLabel.setStyleSheet("font-weight: bold; padding-left: 5px;")  # <-- Add slight padding
@@ -612,44 +642,37 @@ class FeedbackUI(QMainWindow):
         
         # Load image (same as before)
         if self.selected_vein == "Left Vein":
+=======
+        # Create indicator layouts only on the left
+        leftIndicatorsLayout = QVBoxLayout()
+        leftIndicatorsLayout.addLayout(createIndicatorWidget(self.circleIndicator2, "Elevation"))
+        leftIndicatorsLayout.addLayout(createIndicatorWidget(self.circleIndicator, "Angle of Insertion"))
+
+        # Load the appropriate image based on the selected vein and insertion point
+        if self.selected_vein == "Right Vein":
+>>>>>>> e2ebdd2 (Improved UI flow and changed colour of post-procedure feedback graphs)
             if self.selected_point == "Point A":
                 self.pixmap = QPixmap("Capstone/Feedback/0007.png")
             elif self.selected_point == "Point B":
                 self.pixmap = QPixmap("Capstone/Feedback/middleleftvein-removebg-preview.png")
-                """
-                original22 = QPixmap("Capstone/Feedback/middleleftvein-removebg-preview.png")
-                # Create new pixmap with extra space
-                new_pixmap = QPixmap(original22.size().width() + 500, original22.size().height() + 250)
-                new_pixmap.fill(Qt.GlobalColor.transparent)
-                
-                # Paint original at offset
-                painter = QPainter(new_pixmap)
-                painter.drawPixmap(500, 0, original22)
-                painter.end()
-                
-                self.pixmap = new_pixmap
-                """
             elif self.selected_point == "Point C":
                 self.pixmap = QPixmap("Capstone/Feedback/bottomleftvein-removebg-preview.png")
-        elif self.selected_vein == "Right Vein":
+        elif self.selected_vein == "Left Vein":
             if self.selected_point == "Point A":
                 self.pixmap = QPixmap("Capstone/Feedback/toprightvein-removebg-preview.png")
             elif self.selected_point == "Point B":
-                # Create new pixmap with extra space
                 original = QPixmap("Capstone/Feedback/middlerightvein-removebg-preview.png")
                 new_pixmap = QPixmap(original.size().width() + 500, original.size().height() + 250)
                 new_pixmap.fill(Qt.GlobalColor.transparent)
-                
-                # Paint original at offset
                 painter = QPainter(new_pixmap)
                 painter.drawPixmap(500, 0, original)
                 painter.end()
-                
                 self.pixmap = new_pixmap
             elif self.selected_point == "Point C":
-                self.pixmap = QPixmap("Capstone/Feedback/bottomrightvein-removebg-preview.png")        
+                self.pixmap = QPixmap("Capstone/Feedback/bottomrightvein-removebg-preview.png")
         else:
             self.pixmap = QPixmap("Capstone/Feedback/default_image.png")
+<<<<<<< HEAD
         
         # Flip and scale
         transform = QTransform().rotate(180)
@@ -665,10 +688,33 @@ class FeedbackUI(QMainWindow):
         #leftLayout.addWidget(self.arm_image_label)
 
         #leftLayout.addLayout(armImageLayout)
+=======
+
+        transform = QTransform().rotate(180)
+        self.pixmap = self.pixmap.transformed(transform)
+
+        if self.pixmap.isNull():
+            print(f"Error: Failed to load image for vein={self.selected_vein}, point={self.selected_point}")
+            self.pixmap = QPixmap("Capstone/Feedback/default_image.png")
+
+        # Arm Image Layout
+        imageLayout = QVBoxLayout()
+        self.arm_image_label = QLabel(self)
+        self.arm_image_label.setPixmap(self.pixmap.scaled(335, 475))
+        self.arm_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        imageLayout.addWidget(self.arm_image_label)
+
+        # Combine all into middle layout
+        mainMiddleLayout = QHBoxLayout()
+        mainMiddleLayout.addLayout(leftIndicatorsLayout)
+        mainMiddleLayout.addLayout(imageLayout)
+
+        leftLayout.addLayout(mainMiddleLayout)
+>>>>>>> e2ebdd2 (Improved UI flow and changed colour of post-procedure feedback graphs)
 
         # Directional arrows (GIFs)
         self.arrow_up = QLabel(self.arm_image_label)
-        self.arrow_up.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground,True)
+        self.arrow_up.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.arrow_up_movie = QMovie("Capstone/Feedback/arrows/up-arrow.gif")
         self.arrow_up_movie.setScaledSize(QSize(100, 100))
         self.arrow_up.setMovie(self.arrow_up_movie)
@@ -682,81 +728,54 @@ class FeedbackUI(QMainWindow):
         self.arrow_down.setVisible(False)
 
         self.arrow_left = QLabel(self.arm_image_label)
-        self.arrow_left.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground,True)
+        self.arrow_left.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.arrow_left_movie = QMovie("Capstone/Feedback/arrows/left-arrow.gif")
         self.arrow_left_movie.setScaledSize(QSize(100, 100))
         self.arrow_left.setMovie(self.arrow_left_movie)
         self.arrow_left.setVisible(False)
 
         self.arrow_right = QLabel(self.arm_image_label)
-        self.arrow_right.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground,True)
+        self.arrow_right.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.arrow_right_movie = QMovie("Capstone/Feedback/arrows/right-arrow.gif")
         self.arrow_right_movie.setScaledSize(QSize(100, 100))
         self.arrow_right.setMovie(self.arrow_right_movie)
         self.arrow_right.setVisible(False)
 
-        # Position Arrows (overlayed)
-        self.arrow_up.move(400, 40)  # Adjust position as needed
-        self.arrow_down.move(400, 235)
-        self.arrow_left.move(220, 180)
-        self.arrow_right.move(565, 180)
+        self.arrow_up.move(250, 40)
+        self.arrow_down.move(250, 235)
+        self.arrow_left.move(70, 180)
+        self.arrow_right.move(365, 180)
 
         self.arrow_up_movie.start()
         self.arrow_down_movie.start()
         self.arrow_left_movie.start()
         self.arrow_right_movie.start()
-        """
-        # Needle Position, Angle, and Depth
-        positionLayout = QGridLayout()
-        positionLayout.addWidget(QLabel("Needle Position (x, y, z):"), 0, 0)
-        self.positionInput = QLineEdit("(0.00, 0.00, 0.00)")
-        positionLayout.addWidget(self.positionInput, 0, 1)
 
-        positionLayout.addWidget(QLabel("Needle Angle (°):"), 1, 0)
-        self.angleInput = QLineEdit("0.00")
-        positionLayout.addWidget(self.angleInput, 1, 1)
-
-        positionLayout.addWidget(QLabel("Needle Depth (mm):"), 2, 0)
-        self.depthInput = QLineEdit("0.00")
-        positionLayout.addWidget(self.depthInput, 2, 1)
-
-        leftLayout.addLayout(positionLayout)
-        """
-        # Guided Prompts and Warnings
         rightLayout = QVBoxLayout()
-        rightLayout.setContentsMargins(0, 0, 0, 0)  # Remove all margins
-        rightLayout.setSpacing(0)  # Remove spacing between widgets
+        rightLayout.setContentsMargins(0, 0, 0, 0)
+        rightLayout.setSpacing(0)
 
-        # Create a container widget for the label and text edit
         prompts_container = QWidget()
         prompts_container.setLayout(QVBoxLayout())
         prompts_container.layout().setContentsMargins(0, 0, 0, 0)
         prompts_container.layout().setSpacing(0)
 
-        # Add the label (stick to top)
         title_label = QLabel("Guided Prompts and Warnings:")
-        title_label.setContentsMargins(0, 0, 0, 0)  # Remove label margins
+        title_label.setContentsMargins(0, 0, 0, 0)
         prompts_container.layout().addWidget(title_label)
 
-        # Add the text edit
         self.promptsLog = QTextEdit()
         self.promptsLog.setReadOnly(True)
         self.promptsLog.setFixedHeight(150)
-        self.promptsLog.setContentsMargins(0, 0, 0, 0)  # Remove text edit margins
+        self.promptsLog.setContentsMargins(0, 0, 0, 0)
         prompts_container.layout().addWidget(self.promptsLog)
-
-        # Add stretch to push everything up
         prompts_container.layout().addStretch()
 
-        # Add container to right layout
         rightLayout.addWidget(prompts_container)
 
-        # Buttons
         buttonLayout = QHBoxLayout()
 
         self.endSimulationButton = QPushButton("End Simulation")
-
-        # Style the button to be big and red
         self.endSimulationButton.setStyleSheet("""
             QPushButton {
                 background-color: red;
@@ -765,24 +784,20 @@ class FeedbackUI(QMainWindow):
                 font-weight: bold;
                 padding: 15px 30px;
                 border-radius: 10px;
-                margin-top: 10px;  /* Add some spacing */
+                margin-top: 10px;
             }
             QPushButton:hover {
                 background-color: white;
                 color: black;
             }
         """)
-
         self.endSimulationButton.clicked.connect(self._endSimulation)
         rightLayout.addWidget(self.endSimulationButton, alignment=Qt.AlignmentFlag.AlignCenter)
-
         rightLayout.addLayout(buttonLayout)
 
-        # Add the vein plot to the top-right corner
         self._plotVeins(rightLayout)
 
-        # Add layouts to the general layout
-        self.generalLayout.addLayout(leftLayout, 1)  # Assign more weight to the left layout
+        self.generalLayout.addLayout(leftLayout, 1)
         self.generalLayout.addLayout(rightLayout)
 
         self.session_time_label.raise_()
@@ -1347,7 +1362,7 @@ class FeedbackUI(QMainWindow):
 
         # Load data
         live_traj = np.loadtxt("Capstone/Filter/filtered_data.txt")
-        expert_traj = np.loadtxt("Capstone/SignalProcessing/expert_data/left-vein/middle/mean_traj.txt")
+        expert_traj = np.loadtxt("Capstone/SignalProcessing/expert_data/right-vein/middle/mean_traj.txt")
 
         # Create Matplotlib figure with black background
         fig = Figure(figsize=(8, 6), facecolor='black')
@@ -1364,7 +1379,7 @@ class FeedbackUI(QMainWindow):
         ax.title.set_color('white')
 
         # Plot expert and live trajectories with bright colors
-        ax.plot(expert_traj[:, 0], expert_traj[:, 1], expert_traj[:, 2], color='cyan', linewidth=2, label="Expert (Mean)")
+        ax.plot(expert_traj[:, 0], expert_traj[:, 1], expert_traj[:, 2], color='red', linewidth=2, label="Expert (Mean)")
         try:
             ax.plot(live_traj[:, 0], live_traj[:, 1], live_traj[:, 2], color='lime', linewidth=2, label="Live")
 
@@ -1373,8 +1388,8 @@ class FeedbackUI(QMainWindow):
             ax.scatter(live_traj[-1][0], live_traj[-1][1], live_traj[-1][2], color='lime', marker='x', s=50, label='Live End')
         except IndexError as e:
             pass
-        ax.scatter(expert_traj[0][0], expert_traj[0][1], expert_traj[0][2], color='cyan', marker='o', s=50, label='Expert Start')
-        ax.scatter(expert_traj[-1][0], expert_traj[-1][1], expert_traj[-1][2], color='cyan', marker='x', s=50, label='Expert End')
+        ax.scatter(expert_traj[0][0], expert_traj[0][1], expert_traj[0][2], color='red', marker='o', s=50, label='Expert Start')
+        ax.scatter(expert_traj[-1][0], expert_traj[-1][1], expert_traj[-1][2], color='red', marker='x', s=50, label='Expert End')
 
 
         # Labels

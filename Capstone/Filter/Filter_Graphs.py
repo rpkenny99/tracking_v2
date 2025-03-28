@@ -202,7 +202,7 @@ def process_file_2(raw_data_queue,
     filtered_data_queue.put(None)
 
 
-def get_unique_filename(base_name="Capstone/SignalProcessing/expert_data/left-vein/middle/filtered_data", ext=".txt"):
+def get_unique_filename(base_name="Capstone/SignalProcessing/expert_data/right-vein/middle/filtered_data", ext=".txt"):
     for i in count(1):
         filename = f"{base_name}_{i}{ext}"
         if not os.path.exists(filename):

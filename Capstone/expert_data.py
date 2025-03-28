@@ -64,7 +64,7 @@ def post_process_nominal_insertion_and_elevation_angles(left_right="LEFT", locat
     _, _, Tz = load_data(vein_fp)
 
     avg_angles_per_file = []
-    data_dir = 'Capstone/SignalProcessing/expert_data/left-vein/middle/'
+    data_dir = 'Capstone/SignalProcessing/expert_data/right-vein/middle/'
 
     for filepath in glob.glob(os.path.join(data_dir, 'filtered_data_*.txt')):
         data = load_filtered_data(filepath)
