@@ -55,7 +55,7 @@ class IntroScreen(QDialog):
         super().__init__()
         self.setStyleSheet(JET_BLACK_STYLE)
         self.setWindowTitle("Cyber-Physical Infant IV Simulator")
-        self.setFixedSize(1920, 1080)  # Make the window maximized
+        self.setFixedSize(1366, 700)  # Make the window maximized
 
         layout = QVBoxLayout()
         label = QLabel("Cyber-Physical Infant IV Simulator")
@@ -142,7 +142,7 @@ class PickVeinScreen(QDialog):
         super().__init__()
         self.setStyleSheet(JET_BLACK_STYLE)
         self.setWindowTitle("Pick Your Vein")
-        self.setFixedSize(1920, 1080)
+        self.setFixedSize(1366, 700)
         
         self.setStyleSheet("background-color: black; color: white;")
         self.setStyleSheet("""
@@ -286,7 +286,7 @@ class PickInsertionPointScreen(QDialog):
         super().__init__()
         self.setStyleSheet(JET_BLACK_STYLE)
         self.setWindowTitle("Pick Insertion Point")
-        self.setFixedSize(1920, 1080)
+        self.setFixedSize(1366, 700)
         self.selected_vein = selected_vein
 
         # Main layout
@@ -567,57 +567,50 @@ class FeedbackUI(QMainWindow):
         # Create the Target Metrics box first
         self._createTargetMetricsBox(leftLayout)
 
-        # Container for circle indicators and labels
-        circleContainer = QHBoxLayout()
-        
-        # First Circle Indicator (Green)
+        # ---- Modified Circle Indicators Section ----
+        leftLayout.addSpacing(70)
+        # Vertical layout for both circles (aligned left)
+        circleVerticalLayout = QVBoxLayout()
+        circleVerticalLayout.setSpacing(10)  # Space between circles
+        circleVerticalLayout.setAlignment(Qt.AlignmentFlag.AlignLeft)  # <-- Key change
+
+        # --- Angle of Insertion (Top Circle) ---
         self.circleIndicator = QLabel(self)
-        self.circleIndicator.setFixedSize(100, 100)  # Set the size of the circle
+        self.circleIndicator.setFixedSize(100, 100)
         self.circleIndicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._updateCircleIndicator(0)  # Initialize with default values
+        self._updateCircleIndicator(0)
 
-        # Label for Angle of Insertion (Green Circle)
         angleLabel = QLabel("Angle of Insertion")
-        angleLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        angleLabel.setStyleSheet("font-weight: bold;")  # Optional: Make the label bold
+        angleLabel.setAlignment(Qt.AlignmentFlag.AlignLeft)  # <-- Align text left
+        angleLabel.setStyleSheet("font-weight: bold; padding-left: 5px;")  # <-- Add slight padding
 
-        # Vertical layout for Green Circle and its label
-        greenCircleLayout = QVBoxLayout()
-        greenCircleLayout.addWidget(self.circleIndicator)
-        greenCircleLayout.addWidget(angleLabel)
-        greenCircleLayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        circleContainer.addLayout(greenCircleLayout)
-
-        # Second Circle Indicator (Blue)
+        # --- Elevation (Bottom Circle) ---
         self.circleIndicator2 = QLabel(self)
-        self.circleIndicator2.setFixedSize(100, 100)  # Set the size of the circle
+        self.circleIndicator2.setFixedSize(100, 100)
         self.circleIndicator2.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._updateCircleIndicator2(0)  # Initialize with default values
+        self._updateCircleIndicator2(0)
 
-        # Label for Elevation (Blue Circle)
         elevationLabel = QLabel("Elevation")
-        elevationLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        elevationLabel.setStyleSheet("font-weight: bold;")  # Optional: Make the label bold
+        elevationLabel.setAlignment(Qt.AlignmentFlag.AlignLeft)  # <-- Align text left
+        elevationLabel.setStyleSheet("font-weight: bold; padding-left: 5px;")  # <-- Add slight padding
 
-        # Vertical layout for Blue Circle and its label
-        blueCircleLayout = QVBoxLayout()
-        blueCircleLayout.addWidget(self.circleIndicator2)
-        blueCircleLayout.addWidget(elevationLabel)
-        blueCircleLayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Add both circles to vertical layout
+        circleVerticalLayout.addWidget(self.circleIndicator)
+        circleVerticalLayout.addWidget(angleLabel)
+        circleVerticalLayout.addWidget(self.circleIndicator2)
+        circleVerticalLayout.addWidget(elevationLabel)
 
-        circleContainer.addLayout(blueCircleLayout)
-
-        leftLayout.addLayout(circleContainer)
+        # Add to main left layout (no stretching)
+        leftLayout.addLayout(circleVerticalLayout)
 
         # Rest of the UI setup remains unchanged...
         armImageLayout = QHBoxLayout()
         armImageLayout.addStretch()
 
-        # Arm Image
+        # Arm Image (using absolute positioning instead of layouts)
         self.arm_image_label = QLabel(self)
         
-        # Load the appropriate image based on the selected vein and insertion point
+        # Load image (same as before)
         if self.selected_vein == "Left Vein":
             if self.selected_point == "Point A":
                 self.pixmap = QPixmap("Capstone/Feedback/0007.png")
@@ -633,26 +626,22 @@ class FeedbackUI(QMainWindow):
             elif self.selected_point == "Point C":
                 self.pixmap = QPixmap("Capstone/Feedback/bottomrightvein-removebg-preview.png")
         else:
-            # Default image if no vein or point is selected (optional)
             self.pixmap = QPixmap("Capstone/Feedback/default_image.png")
         
-        # Flip the pixmap 180 degrees (upside down)
-        transform = QTransform().rotate(180)  # Rotate by 180 degrees
-        self.pixmap = self.pixmap.transformed(transform)
+        # Flip and scale
+        transform = QTransform().rotate(180)
+        self.pixmap = self.pixmap.transformed(transform).scaled(335, 475)
+        
+        # Set initial position - ADJUST THESE VALUES AS NEEDED
+        image_x = 500  # Move right (increase this value)
+        image_y = 75  # Move up (decrease this value)
+        
+        self.arm_image_label.setPixmap(self.pixmap)
+        self.arm_image_label.setGeometry(image_x, image_y, self.pixmap.width(), self.pixmap.height())
+        self.arm_image_label.show()
+        #leftLayout.addWidget(self.arm_image_label)
 
-        # Debug statement to confirm the image path
-        print(f"Loading image: {self.pixmap}")
-
-        # Ensure the pixmap is loaded successfully
-        if self.pixmap.isNull():
-            print(f"Error: Failed to load image for vein={self.selected_vein}, point={self.selected_point}")
-            self.pixmap = QPixmap("Capstone/Feedback/default_image.png")  # Fallback to default image
-
-        self.arm_image_label.setPixmap(self.pixmap.scaled(335, 475))
-        self.arm_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        leftLayout.addWidget(self.arm_image_label)
-
-        leftLayout.addLayout(armImageLayout)
+        #leftLayout.addLayout(armImageLayout)
 
         # Directional arrows (GIFs)
         self.arrow_up = QLabel(self.arm_image_label)
