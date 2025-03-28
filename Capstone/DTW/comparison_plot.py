@@ -37,7 +37,7 @@ def plot_trajectories(live_trajectory, expert_trajectory):
 if __name__ == "__main__":
     # Load trajectories
     live_trajectory = load_trajectories(["Capstone/Filter/filtered_data.txt"])[0]
-    expert_trajectory = load_trajectories(["Capstone/SignalProcessing/expert_data/right-vein/middle/mean_traj.txt"])[0]
+    expert_trajectory = load_trajectories(["Capstone/SignalProcessing/expert_data/left-vein/middle/mean_traj.txt"])[0]
 
     # Plot
     plot_trajectories(live_trajectory, expert_trajectory)

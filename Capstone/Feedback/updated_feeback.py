@@ -616,15 +616,38 @@ class FeedbackUI(QMainWindow):
                 self.pixmap = QPixmap("Capstone/Feedback/0007.png")
             elif self.selected_point == "Point B":
                 self.pixmap = QPixmap("Capstone/Feedback/middleleftvein-removebg-preview.png")
+                """
+                original22 = QPixmap("Capstone/Feedback/middleleftvein-removebg-preview.png")
+                # Create new pixmap with extra space
+                new_pixmap = QPixmap(original22.size().width() + 500, original22.size().height() + 250)
+                new_pixmap.fill(Qt.GlobalColor.transparent)
+                
+                # Paint original at offset
+                painter = QPainter(new_pixmap)
+                painter.drawPixmap(500, 0, original22)
+                painter.end()
+                
+                self.pixmap = new_pixmap
+                """
             elif self.selected_point == "Point C":
                 self.pixmap = QPixmap("Capstone/Feedback/bottomleftvein-removebg-preview.png")
         elif self.selected_vein == "Right Vein":
             if self.selected_point == "Point A":
                 self.pixmap = QPixmap("Capstone/Feedback/toprightvein-removebg-preview.png")
             elif self.selected_point == "Point B":
-                self.pixmap = QPixmap("Capstone/Feedback/middlerightvein-removebg-preview.png")
+                # Create new pixmap with extra space
+                original = QPixmap("Capstone/Feedback/middlerightvein-removebg-preview.png")
+                new_pixmap = QPixmap(original.size().width() + 500, original.size().height() + 250)
+                new_pixmap.fill(Qt.GlobalColor.transparent)
+                
+                # Paint original at offset
+                painter = QPainter(new_pixmap)
+                painter.drawPixmap(500, 0, original)
+                painter.end()
+                
+                self.pixmap = new_pixmap
             elif self.selected_point == "Point C":
-                self.pixmap = QPixmap("Capstone/Feedback/bottomrightvein-removebg-preview.png")
+                self.pixmap = QPixmap("Capstone/Feedback/bottomrightvein-removebg-preview.png")        
         else:
             self.pixmap = QPixmap("Capstone/Feedback/default_image.png")
         
@@ -1324,7 +1347,7 @@ class FeedbackUI(QMainWindow):
 
         # Load data
         live_traj = np.loadtxt("Capstone/Filter/filtered_data.txt")
-        expert_traj = np.loadtxt("Capstone/SignalProcessing/expert_data/right-vein/middle/mean_traj.txt")
+        expert_traj = np.loadtxt("Capstone/SignalProcessing/expert_data/left-vein/middle/mean_traj.txt")
 
         # Create Matplotlib figure with black background
         fig = Figure(figsize=(8, 6), facecolor='black')

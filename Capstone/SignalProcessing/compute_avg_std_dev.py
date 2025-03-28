@@ -53,13 +53,13 @@ def compute_statistics_spatial(file_list):
     upper_bound = mean_traj + (STD_ACCEPTABLE * std_traj)
     lower_bound = mean_traj - (STD_ACCEPTABLE * std_traj)
 
-    np.savetxt("Capstone/SignalProcessing/expert_data/right-vein/middle/mean_traj.txt", mean_traj, fmt="%.6f")
+    np.savetxt("Capstone/SignalProcessing/expert_data/left-vein/middle/mean_traj.txt", mean_traj, fmt="%.6f")
 
     return mean_traj, upper_bound, lower_bound
 
 def get_mean_std_bounds():
     """Retrieve mean, upper, and lower bound trajectories based on spatial proximities."""
-    folder_path = "Capstone/SignalProcessing/expert_data/right-vein/middle/"
+    folder_path = "Capstone/SignalProcessing/expert_data/left-vein/middle/"
     file_list = sorted(glob.glob(f"{folder_path}filtered_data_*.txt"))
     return compute_statistics_spatial(file_list), load_trajectories(file_list)
 
