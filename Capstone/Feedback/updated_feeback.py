@@ -55,7 +55,7 @@ class IntroScreen(QDialog):
         super().__init__()
         self.setStyleSheet(JET_BLACK_STYLE)
         self.setWindowTitle("Cyber-Physical Infant IV Simulator")
-        self.setFixedSize(1920, 1020)  # Make the window maximized
+        self.setFixedSize(1920, 1060)  # Make the window maximized
 
         layout = QVBoxLayout()
         label = QLabel("Cyber-Physical Infant IV Simulator")
@@ -143,7 +143,7 @@ class PickVeinScreen(QDialog):
         super().__init__()
         self.setStyleSheet(JET_BLACK_STYLE)
         self.setWindowTitle("Pick Your Vein")
-        self.setFixedSize(1920, 1020)
+        self.setFixedSize(1920, 1060)
         
         self.setStyleSheet("background-color: black; color: white;")
         self.setStyleSheet("""
@@ -289,7 +289,7 @@ class PickInsertionPointScreen(QDialog):
         super().__init__()
         self.setStyleSheet(JET_BLACK_STYLE)
         self.setWindowTitle("Pick Insertion Point")
-        self.setFixedSize(1920, 1020)
+        self.setFixedSize(1920, 1060)
         self.selected_vein = selected_vein
 
         # Main layout
@@ -618,7 +618,19 @@ class FeedbackUI(QMainWindow):
             if self.selected_point == "Point A":
                 self.pixmap = QPixmap("Capstone/Feedback/0007.png")
             elif self.selected_point == "Point B":
-                self.pixmap = QPixmap("Capstone/Feedback/middleleftvein-removebg-preview.png")
+                original = QPixmap("Capstone/Feedback/middleleftvein-removebg-preview.png")
+                scaled_original = original.scaled(
+                    int(335*0.92),
+                    int(475*0.92),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+                new_pixmap = QPixmap(scaled_original.size().width() + 400, scaled_original.size().height() + 400)
+                new_pixmap.fill(Qt.GlobalColor.transparent)
+                painter = QPainter(new_pixmap)
+                painter.drawPixmap(170, 315, scaled_original)
+                painter.end()
+                self.pixmap = new_pixmap
             elif self.selected_point == "Point C":
                 self.pixmap = QPixmap("Capstone/Feedback/bottomleftvein-removebg-preview.png")
         elif self.selected_vein == "Left Vein":
@@ -647,7 +659,7 @@ class FeedbackUI(QMainWindow):
         # Arm Image Layout
         imageLayout = QVBoxLayout()
         self.arm_image_label = QLabel(self)
-        self.arm_image_label.setPixmap(self.pixmap.scaled(335, 475))
+        self.arm_image_label.setPixmap(self.pixmap)
         self.arm_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         imageLayout.addWidget(self.arm_image_label)
 

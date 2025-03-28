@@ -68,12 +68,14 @@ def main():
     feedback_monitor.start()              
 
     # Run the PyQt GUI in the main thread
-    
     main_app = MainApplication(sig_processed,
                                app_to_signal_processing,
                                angle_range_queue,
                                direction_intruction_queue,
                                user_score_queue)
+    
+    tracking_ready.put(1)
+    
     while True:
         if tracking_ready.get() == 1:
             break
