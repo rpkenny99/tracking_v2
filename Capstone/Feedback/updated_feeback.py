@@ -463,6 +463,29 @@ class PickInsertionPointScreen(QDialog):
     def go_back(self):
         self.reject()  # Return to PickVeinScreen
 
+class DraggableLabel(QLabel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._drag_active = False
+        self._drag_position = None
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_active = True
+            self._drag_position = event.globalPosition().toPoint() - self.pos()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if self._drag_active and event.buttons() & Qt.MouseButton.LeftButton:
+            new_pos = event.globalPosition().toPoint() - self._drag_position
+            self.move(new_pos)
+            event.accept()
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_active = False
+            event.accept()
+
 class FeedbackUI(QMainWindow):
     def __init__(self,
                  selected_vein,
@@ -658,9 +681,10 @@ class FeedbackUI(QMainWindow):
 
         # Arm Image Layout
         imageLayout = QVBoxLayout()
-        self.arm_image_label = QLabel(self)
+        self.arm_image_label = DraggableLabel(self)
         self.arm_image_label.setPixmap(self.pixmap)
-        self.arm_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.arm_image_label.raise_()
+
         imageLayout.addWidget(self.arm_image_label)
 
         # Combine all into middle layout
