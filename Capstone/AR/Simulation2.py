@@ -15,6 +15,7 @@ import logging
 # import viewer_control2
 
 WORLD_COORD_TO_ARM = 81.66, 97.77 # mm right, up
+VEIN_DIMENSION_ON_ARM = 17, 109 # mm right, up
 
 tracking_queue = None
 
