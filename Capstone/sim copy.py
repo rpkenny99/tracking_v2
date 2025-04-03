@@ -8,7 +8,7 @@ from Tracking.markerDetection import startTracking
 from Filter.Filter_Graphs import process_file_2
 from SignalProcessing.signal_processing import sig_processing
 from SignalProcessing.feedback_monitor import monitor
-from Feedback.updated_feeback import MainApplication
+from Feedback.updated_feeback_mods import MainApplication
 
 logging.basicConfig(format='%(levelname)s - %(asctime)s.%(msecs)03d: %(message)s',datefmt='%H:%M:%S', level=logging.DEBUG)
 
