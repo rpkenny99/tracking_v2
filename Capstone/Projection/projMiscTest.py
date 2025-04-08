@@ -82,7 +82,7 @@ for window in window_list:
 #     tracking_process.join()
 
 
-
+"""
 from threading import Thread
 from queue import Queue
 from markerDetectionFrame import startTrackingPerspective
@@ -108,3 +108,13 @@ def main():
 
 if __name__ == "__main__":
     main()
+    """
+import numpy as np
+
+# Two NumPy arrays of the same shape
+arr1 = np.array([1, 2, 3, 4])
+arr2 = np.array([10, 20, 30, 40])
+
+# Element-wise multiplication of the two arrays
+result = arr1 * arr2
+print(result)  # Output: [10 40 90 160]
